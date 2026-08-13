@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">GuardianForm</title>
+  <rect width="96" height="96" rx="18" fill="#111e2d"/>
+  <rect x="2" y="2" width="92" height="92" rx="16" fill="none" stroke="#a78bfa" stroke-width="3"/>
+  <text x="48" y="58" text-anchor="middle" fill="#c4b5fd" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="500">GF</text>
+</svg>

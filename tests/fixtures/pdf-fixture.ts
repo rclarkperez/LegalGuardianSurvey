@@ -1,0 +1,17 @@
+export const pdfPageFourFixture = {
+  guardianFeesAmount: '555',
+  guardianFeesFromDate: '2026-06-23',
+  guardianFeesToDate: '2026-07-01',
+  monthlyAdvanceAmount: '4444',
+  feesReceivedAmount: '444',
+  disburseAmount: '5553',
+  attorneyLawOffice: 'Clark & Example PLLC',
+  attorneyFeesAmount: '3535',
+  attorneyFeesFromDate: '2026-06-24',
+  attorneyFeesToDate: '2026-06-14',
+  previousPeriodFeesTotal: '335',
+  monthlyAverage: '55',
+  previousMonthlyAllowance: '777',
+  requestedMonthlyAllowance: '888',
+  allowanceEffectiveDate: '2026-07-15',
+} as const

@@ -1,0 +1,21 @@
+node_modules
+dist
+.DS_Store
+.temp-conversions/
+.tmp/
+.env
+.env.local
+.env.*.local
+*.log
+*.tsbuildinfo
+.vite
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Generated PDF fixtures and local artifacts
+/artifacts/

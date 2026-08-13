@@ -1,0 +1,229 @@
+{
+  "individualName": {
+    "page": 0,
+    "x": 140,
+    "y": 235,
+    "fontSize": 12,
+    "maxWidth": 250
+  },
+
+  "caseNumber": {
+    "page": 0,
+    "x": 470,
+    "y": 235,
+    "fontSize": 12,
+    "maxWidth": 100
+  },
+
+  "reportType12Month": {
+    "page": 0,
+    "x": 390,
+    "y": 265,
+    "fontSize": 10
+  },
+
+  "reportType24Month": {
+    "page": 0,
+    "x": 390,
+    "y": 252,
+    "fontSize": 10
+  },
+
+  "reportType36Month": {
+    "page": 0,
+    "x": 390,
+    "y": 239,
+    "fontSize": 10
+  },
+
+  "reportTypeFinal": {
+    "page": 0,
+    "x": 390,
+    "y": 226,
+    "fontSize": 10
+  },
+
+  "guardianshipFull": {
+    "page": 0,
+    "x": 120,
+    "y": 285,
+    "fontSize": 10
+  },
+
+  "guardianshipLimited": {
+    "page": 0,
+    "x": 220,
+    "y": 285,
+    "fontSize": 10
+  },
+
+  "conservatorshipFull": {
+    "page": 0,
+    "x": 120,
+    "y": 300,
+    "fontSize": 10
+  },
+
+  "conservatorshipLimited": {
+    "page": 0,
+    "x": 220,
+    "y": 300,
+    "fontSize": 10
+  },
+
+  "guardianName": {
+    "page": 0,
+    "x": 160,
+    "y": 120,
+    "fontSize": 12,
+    "maxWidth": 250
+  },
+
+  "guardianAddress": {
+    "page": 0,
+    "x": 160,
+    "y": 145,
+    "fontSize": 12,
+    "maxWidth": 250
+  },
+
+  "guardianCity": {
+    "page": 0,
+    "x": 420,
+    "y": 145,
+    "fontSize": 12,
+    "maxWidth": 100
+  },
+
+  "guardianZip": {
+    "page": 0,
+    "x": 520,
+    "y": 145,
+    "fontSize": 12,
+    "maxWidth": 60
+  },
+
+  "guardianPhone": {
+    "page": 0,
+    "x": 440,
+    "y": 170,
+    "fontSize": 12,
+    "maxWidth": 120
+  },
+
+  "guardianFax": {
+    "page": 0,
+    "x": 440,
+    "y": 190,
+    "fontSize": 12,
+    "maxWidth": 120
+  },
+
+  "guardianEmail": {
+    "page": 0,
+    "x": 440,
+    "y": 205,
+    "fontSize": 12,
+    "maxWidth": 180
+  },
+
+  "guardianAge": {
+    "page": 0,
+    "x": 520,
+    "y": 205,
+    "fontSize": 12,
+    "maxWidth": 40
+  },
+
+  "appointmentDate": {
+    "page": 0,
+    "x": 240,
+    "y": 320,
+    "fontSize": 12
+  },
+
+  "lastReportApprovedDate": {
+    "page": 0,
+    "x": 400,
+    "y": 320,
+    "fontSize": 12
+  },
+
+  "reportStartDate": {
+    "page": 0,
+    "x": 240,
+    "y": 350,
+    "fontSize": 12
+  },
+
+  "reportEndDate": {
+    "page": 0,
+    "x": 400,
+    "y": 350,
+    "fontSize": 12
+  },
+
+  "individualStatus": {
+    "page": 1,
+    "x": 50,
+    "y": 700,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "individualConcerns": {
+    "page": 1,
+    "x": 50,
+    "y": 650,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "servicesReceived": {
+    "page": 1,
+    "x": 50,
+    "y": 600,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "livingArrangements": {
+    "page": 1,
+    "x": 50,
+    "y": 550,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "medicalCondition": {
+    "page": 2,
+    "x": 50,
+    "y": 700,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "mentalCondition": {
+    "page": 2,
+    "x": 50,
+    "y": 650,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "socialArrangements": {
+    "page": 2,
+    "x": 50,
+    "y": 600,
+    "fontSize": 11,
+    "maxWidth": 500
+  },
+
+  "functionalAbility": {
+    "page": 2,
+    "x": 50,
+    "y": 550,
+    "fontSize": 11,
+    "maxWidth": 500
+  }
+}
