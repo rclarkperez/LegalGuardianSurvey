@@ -994,11 +994,9 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
       // Call success callback
       onSuccess?.(pdfBlob, data)
 
-      // Reset form
-      reset()
-      setCurrentStep(0)
-      setIsReviewMode(false)
-      setHasReviewReturnPath(false)
+      // Reset form and navigation state together so conditional step
+      // reconciliation cannot restore the pre-submit card.
+      resetToInitialState()
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to generate PDF'
       console.error('❌ Error during form submission:', error)
@@ -1081,6 +1079,20 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
     })
   }
 
+  const resetToInitialState = () => {
+    // Clear the navigation snapshots as well as the form values. Otherwise
+    // the step-list reconciliation effect can restore the card that was
+    // active before the reset when conditional cards are removed.
+    currentStepSnapshotRef.current = null
+    currentStepIndexRef.current = 0
+    previousRenderedStepRef.current = null
+    pendingStepNavigationRef.current = null
+    setCurrentStep(0)
+    setIsReviewMode(false)
+    setHasReviewReturnPath(false)
+    reset()
+  }
+
   const closeConfirmationModal = () => {
     if (isSubmitting) {
       return
@@ -1095,10 +1107,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
     }
 
     if (confirmationModal.type === 'clear') {
-      reset()
-      setCurrentStep(0)
-      setIsReviewMode(false)
-      setHasReviewReturnPath(false)
+      resetToInitialState()
       setSuccessMessage('')
       setErrorMessage('')
       setConfirmationModal(null)
