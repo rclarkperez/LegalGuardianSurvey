@@ -29,7 +29,6 @@ function App() {
           <img className="brand-mark" src="/guardianform-mark.svg" alt="" />
           <span className="brand-copy">
             <h2 className="brand-product-name">GuardianForm</h2>
-            <span className="brand-status">IN PROGRESS</span>
             <span className="brand-name">Legal Guardian<br />Survey App</span>
             <span className="brand-tagline">Form workflows · PDF generation</span>
           </span>

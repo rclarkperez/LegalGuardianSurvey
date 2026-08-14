@@ -72,12 +72,6 @@
   text-transform: uppercase;
 }
 
-.brand-status {
-  color: #63e6b0;
-  font: 600 0.66rem/1.1 "SFMono-Regular", Consolas, monospace;
-  letter-spacing: 0.18em;
-}
-
 .brand-name {
   color: #f1f5fb;
   font-size: clamp(1.15rem, 2.2vw, 1.65rem);
