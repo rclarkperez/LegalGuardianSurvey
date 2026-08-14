@@ -24,6 +24,10 @@ interface TemplateFormProps {
   showSuccessMessage?: boolean
   /** Custom submit button text */
   submitButtonText?: string
+  /** Increment to request the clear-form confirmation from outside the form */
+  clearRequest?: number
+  /** Callback after the form has been cleared */
+  onClear?: () => void
 }
 
 type ConfirmationModalState =
@@ -655,7 +659,9 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   onSuccess,
   onError,
   showSuccessMessage = true,
-  submitButtonText = 'Submit'
+  submitButtonText = 'Submit',
+  clearRequest = 0,
+  onClear
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
@@ -704,6 +710,19 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
 
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    if (clearRequest === 0 || isSubmitting) {
+      return
+    }
+
+    setConfirmationModal({
+      type: 'clear',
+      title: 'Clear Form?',
+      message: 'Are you sure you want to clear your form? This will remove all entered answers.',
+      confirmLabel: 'Clear Form'
+    })
+  }, [clearRequest, isSubmitting])
 
   useEffect(() => {
     DERIVED_FIELD_RULES.forEach(({ fieldId, calculate }) => {
@@ -1083,6 +1102,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
       setSuccessMessage('')
       setErrorMessage('')
       setConfirmationModal(null)
+      onClear?.()
       return
     }
 

@@ -6,6 +6,16 @@ import './App.css'
 
 function App() {
   const [hasStarted, setHasStarted] = useState(false)
+  const [clearRequest, setClearRequest] = useState(0)
+
+  const handleLogoClick = () => {
+    if (hasStarted) {
+      setClearRequest(request => request + 1)
+      return
+    }
+
+    setHasStarted(false)
+  }
 
   return (
     <div className="app-container">
@@ -13,7 +23,7 @@ function App() {
         <button
           className="brand-lockup"
           type="button"
-          onClick={() => setHasStarted(false)}
+          onClick={handleLogoClick}
           aria-label="GuardianForm home"
         >
           <img className="brand-mark" src="/guardianform-mark.svg" alt="" />
@@ -39,7 +49,11 @@ function App() {
       </header>
       <main className={hasStarted ? 'survey-main' : 'landing-main'}>
         {hasStarted ? (
-          <TemplateForm template={guardianShipFormTemplate} />
+          <TemplateForm
+            template={guardianShipFormTemplate}
+            clearRequest={clearRequest}
+            onClear={() => setHasStarted(false)}
+          />
         ) : (
           <section className="landing-page" aria-labelledby="landing-title">
             <div className="landing-copy">
