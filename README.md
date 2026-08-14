@@ -1,100 +1,46 @@
 # GuardianForm
 
-A modern React TypeScript web application for form submission with PDF document generation.
+GuardianForm is a React and TypeScript survey app for completing a legal guardian report and generating a filled PDF.
 
-## Features
+## Requirements
 
-- ✨ **React 18 + TypeScript** - Type-safe React development
-- 📝 **Form Validation** - Built-in form validation with react-hook-form
-- 📄 **PDF Generation** - Generate fillable PDF documents from form submissions using pdf-lib
-- 🎨 **Responsive Design** - Beautiful UI that works on all devices
-- ⚡ **Vite Build Tool** - Lightning-fast build and development server
-- 🔧 **Easy to Customize** - Modular component structure
+- Node.js 18 or later
+- npm
 
-## Getting Started
+## Setup
 
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Installation
-
-1. Navigate to the project directory:
 ```bash
-cd GuardianForm
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-### Development
-
-Start the development server:
-```bash
+npm ci
 npm run dev
 ```
 
-The application runs at `http://localhost:3000` with the included Vite configuration.
+The development server runs at [http://localhost:3000](http://localhost:3000).
 
-### Building
+## Scripts
 
-Build for production:
 ```bash
-npm run build
+npm run build       # Type-check and build for production
+npm run preview     # Preview the production build
+npm run typecheck   # Check TypeScript without emitting files
+npm run lint        # Run ESLint
+npm test            # Run typecheck and lint
 ```
 
-Preview the production build:
+## Playwright tests
+
+Install the browser dependencies once before running the end-to-end suite:
+
 ```bash
-npm run preview
+npx playwright install --with-deps
+npx playwright test
 ```
 
-## Project Structure
+The full suite covers Chromium, Firefox, WebKit, responsive flows, and PDF generation. Pull requests run the full Playwright suite automatically through the `PR Check` GitHub Actions workflow. Failed runs upload the Playwright report as an artifact.
 
-```
-GuardianForm/
-├── src/
-│   ├── components/       # React components
-│   ├── styles/          # Component styles
-│   ├── utils/           # Utility functions (PDF generation, validation)
-│   ├── App.tsx          # Main App component
-│   ├── main.tsx         # Entry point
-│   └── index.css        # Global styles
-├── public/              # Static files
-├── index.html           # HTML entry point
-├── vite.config.ts       # Vite configuration
-├── tsconfig.json        # TypeScript configuration
-└── package.json         # Dependencies and scripts
-```
+## Project layout
 
-## Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run typecheck` - Run the TypeScript compiler without emitting files
-- `npm run lint` - Run ESLint
-- `npm test` - Run type checking and linting
-- `npm run preview` - Preview production build
-
-## Technologies Used
-
-- **React** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **react-hook-form** - Form state management
-- **pdf-lib** - Fillable PDF generation
-- **CSS3** - Styling
-
-## Contributing
-
-Feel free to submit issues and enhancement requests!
-
-## License
-
-MIT License - feel free to use this project for your needs.
-
-## Support
-
-For issues and questions, please open an issue in the repository.
+- `src/components/` — survey and form components
+- `src/templates/` — guardian report template definitions
+- `src/utils/` — form derivation and PDF generation utilities
+- `tests/` — Playwright and utility tests
+- `public/` — static assets and the source PDF
