@@ -156,7 +156,7 @@ test.describe('Confirmation modal behavior', () => {
     await expect(textField).toHaveValue('Snohomish')
   })
 
-  test('confirming clear form resets values and returns to the first card', async ({ page }) => {
+  test('confirming clear form returns home and allows a clean form to start', async ({ page }) => {
     await gotoForm(page)
 
     const textField = firstVisibleTextField(page)
@@ -169,7 +169,27 @@ test.describe('Confirmation modal behavior', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Clear Form' }).click()
 
     await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.getByRole('button', { name: /Get started/i })).toBeVisible()
+
+    await page.getByRole('button', { name: /Get started/i }).click()
     await expect(currentCardLabel(page)).toContainText(/General Information/i)
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(firstVisibleTextField(page)).toHaveValue('')
+  })
+
+  test('confirming the home-button clear request does not reopen the dialog on restart', async ({ page }) => {
+    await gotoForm(page)
+
+    const textField = firstVisibleTextField(page)
+    await textField.fill('Clark')
+    await page.getByRole('button', { name: 'GuardianForm home' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    await page.getByRole('dialog').getByRole('button', { name: 'Clear Form' }).click()
+    await expect(page.getByRole('button', { name: /Get started/i })).toBeVisible()
+
+    await page.getByRole('button', { name: /Get started/i }).click()
+    await expect(page.getByRole('dialog')).toBeHidden()
     await expect(firstVisibleTextField(page)).toHaveValue('')
   })
 

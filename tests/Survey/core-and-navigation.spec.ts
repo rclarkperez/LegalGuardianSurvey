@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
+  answerRadioQuestion,
   currentCardTitle,
   fillTextField,
   goToCardWithText,
@@ -26,7 +27,7 @@ test.describe('Core survey flow', () => {
   })
 
   test.describe('Reset behavior', () => {
-    test('clear form resets answers and returns to the first card', async ({ page }) => {
+    test('clear form returns to the landing page and starts a clean form', async ({ page }) => {
       await gotoForm(page)
 
       await fillTextField(page, /county/i, 'Pierce')
@@ -37,7 +38,11 @@ test.describe('Core survey flow', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Clear Form' }).click()
 
       await expect(page.getByRole('dialog')).toBeHidden()
+      await expect(page.getByRole('button', { name: /Get started/i })).toBeVisible()
+
+      await page.getByRole('button', { name: /Get started/i }).click()
       await expect(currentCardTitle(page)).toContainText(/Section A - General Information/i)
+      await expect(page.getByRole('dialog')).toBeHidden()
       await expect(page.getByLabel(/county/i)).toHaveValue('')
     })
   })
@@ -69,6 +74,29 @@ test.describe('Core survey flow', () => {
 
       await goToNextCard(page)
       await expect(page.getByLabel(/last 4 digits for the interest checking account/i)).toHaveValue('')
+    })
+  })
+
+  test.describe('Agency questions', () => {
+    test('asks for each monitored agency with a Yes or No choice', async ({ page }) => {
+      await gotoForm(page)
+      await goToCardWithText(page, /Is this matter monitored by any other agencies/i)
+      await answerRadioQuestion(page, /Is this matter monitored by any other agencies/i, 'Yes')
+
+      for (const question of [
+        /Is DSHS involved/i,
+        /Is VA involved/i,
+        /Is SSA involved/i,
+        /Is another agency involved/i,
+      ]) {
+        await goToCardWithText(page, question)
+
+        const questionGroup = page.locator('.form-group.radio-group').filter({ hasText: question })
+        await expect(questionGroup.getByLabel('Yes', { exact: true })).toBeVisible()
+        await expect(questionGroup.getByLabel('No', { exact: true })).toBeVisible()
+
+        await answerRadioQuestion(page, question, 'No')
+      }
     })
   })
 

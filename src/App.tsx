@@ -51,7 +51,10 @@ function App() {
           <TemplateForm
             template={guardianShipFormTemplate}
             clearRequest={clearRequest}
-            onClear={() => setHasStarted(false)}
+            onClear={() => {
+              setClearRequest(0)
+              setHasStarted(false)
+            }}
           />
         ) : (
           <section className="landing-page" aria-labelledby="landing-title">
