@@ -623,7 +623,10 @@ const SUPPLEMENTAL_FIELD_OVERRIDES: Record<string, SupplementalFieldOverride> = 
   },
   '13|undefined_67': { id: 'undefined_67', label: 'Current monthly room and board amount' },
   '13|undefined_68': { id: 'undefined_68', label: 'What monthly room and board amount are you proposing? (If none, put N/A)' },
-  '13|fill_33_2': { id: 'fill_33', label: 'Comments for room and board (If none, put N/A)' },
+  '13|fill_33_2': {
+    id: 'budgetRoomBoardComments',
+    label: 'Comments for room and board (If none, put N/A)'
+  },
   '13|undefined_69': { id: 'undefined_69', label: 'Current monthly personal and incidental allowance amount' },
   '13|undefined_70': { id: 'undefined_70', label: 'What monthly personal and incidental allowance amount are you proposing? (If none, put N/A)' },
   '13|fill_34': { id: 'fill_34', label: 'Comments for personal and incidental allowance (If none, put N/A)' },
@@ -639,7 +642,7 @@ const SUPPLEMENTAL_FIELD_OVERRIDES: Record<string, SupplementalFieldOverride> = 
     width: 6
   },
   '13|fill_35_2': {
-    id: 'fill_35',
+    id: 'budgetMedicalDentalComments',
     label: 'Comments for medical or dental insurance (If none, put N/A)',
     width: 6
   },
@@ -669,7 +672,7 @@ const SUPPLEMENTAL_FIELD_OVERRIDES: Record<string, SupplementalFieldOverride> = 
     conditional: { fieldId: 'hasAdditionalBudgetOtherItem2', equals: 'yes' }
   },
   '13|fill_37_2': {
-    id: 'fill_37',
+    id: 'budgetOtherItem2Comments',
     label: 'Comments for the second "other" budget item (If none, put N/A)',
     conditional: { fieldId: 'hasAdditionalBudgetOtherItem2', equals: 'yes' }
   },

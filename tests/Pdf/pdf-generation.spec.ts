@@ -21,6 +21,8 @@ import {
   expectNoCoordinateFallbackChoiceFields,
   expectPdfTextFieldOnPage,
   expectPdfTemplateTextMappingsToPopulateInputs,
+  getPdfFieldWidgetPages,
+  getPdfTextFieldValue,
 } from '../helpers/pdf-helpers'
 import process from 'node:process'
 import { Buffer } from 'node:buffer'
@@ -119,6 +121,11 @@ test.describe('PDF generation regression coverage', () => {
     await expectMappedPdfFieldsToExist(pdfPath, guardianShipFormTemplate)
     expectNoCoordinateFallbackChoiceFields(guardianShipFormTemplate)
     await expectCoordinateOnlyPdfFieldsToFitWithinBounds(guardianShipFormTemplate, formData)
+    for (const fieldName of ['fill_33', 'fill_35', 'fill_37']) {
+      const value = await getPdfTextFieldValue(pdfPath, fieldName)
+      expect(value, `Expected estate expense field "${fieldName}" to be populated`).toMatch(/^\d[\d,]*(?:\.\d{2})?$/)
+      expect(await getPdfFieldWidgetPages(pdfPath, fieldName)).toContain(11)
+    }
     await expectPdfTextFieldOnPage(
       pdfPath,
       'services and other supports and services 1',
