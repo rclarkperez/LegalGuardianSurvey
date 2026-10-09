@@ -236,6 +236,12 @@ export function deriveTemplateFormData(formData: TemplateFormData): TemplateForm
     derivedData.planNotDeviated = !planDeviated
   }
 
+  const conservatorPlanDeviated = normalizeDerivedBoolean(formData.conservatorPlanDeviated)
+  if (conservatorPlanDeviated !== undefined) {
+    derivedData.conservatorPlanHasDeviated = conservatorPlanDeviated
+    derivedData.conservatorPlanNotDeviated = !conservatorPlanDeviated
+  }
+
   const futureCarePlanChanged = normalizeDerivedBoolean(formData.futureCarePlanChanged)
   if (futureCarePlanChanged !== undefined) {
     derivedData.futureCarePlanSame = !futureCarePlanChanged
@@ -245,6 +251,14 @@ export function deriveTemplateFormData(formData: TemplateFormData): TemplateForm
   if (scopeChangeRecommended !== undefined) {
     derivedData.scopeShouldChange = scopeChangeRecommended
     derivedData.scopeShouldRemainSame = !scopeChangeRecommended
+  }
+
+  const conservatorScopeChangeRecommended = normalizeDerivedBoolean(
+    formData.conservatorScopeChangeRecommended
+  )
+  if (conservatorScopeChangeRecommended !== undefined) {
+    derivedData.conservatorScopeShouldChange = conservatorScopeChangeRecommended
+    derivedData.conservatorScopeShouldRemainSame = !conservatorScopeChangeRecommended
   }
 
   derivedData.individualCity = combineCityAndState(formData.individualCityName, formData.individualState)

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { drawHandwrittenSignature, goToNextCard } from '../helpers/form-helpers'
 
 type DownloadRecorderWindow = Window & {
   __testDownloadAttempts?: string[]
@@ -37,8 +38,12 @@ async function goToLastCard(page: Page) {
       return
     }
 
-    await page.getByRole('button', { name: 'Next' }).click()
-    await expect(page.locator('.form-card-shell')).toBeVisible()
+    const signatureCanvas = page.getByLabel('Draw your signature here')
+    if (await signatureCanvas.isVisible().catch(() => false)) {
+      await drawHandwrittenSignature(page)
+    }
+
+    await goToNextCard(page)
   }
 
   throw new Error('Unable to reach the last card within 200 steps')

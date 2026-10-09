@@ -9,7 +9,7 @@ import { generatePdfFromTemplate } from '../src/utils/templatePdfGenerator.ts'
 globalThis.Blob ??= Blob
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const templatePath = path.join(rootDir, 'public', 'GuardianShipFormFillable2.pdf')
+const templatePath = path.join(rootDir, 'public', 'GuardianShipFormFillable.pdf')
 const outputPath = path.join(rootDir, 'artifacts', 'generated-pdfs', 'generated-full-pdf-recheck.pdf')
 const templateBytes = readFileSync(templatePath)
 const templateBuffer = templateBytes.buffer.slice(

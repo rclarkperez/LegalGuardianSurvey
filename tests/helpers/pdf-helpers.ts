@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { PdfTemplate, TemplateField, TemplateFormData } from '../../src/types/template.types'
 import { deriveTemplateFormData } from '../../src/utils/templateFormDerivations'
+import { splitTextIntoMappedFieldValues } from '../../src/utils/templatePdfGenerator'
 
 const require = createRequire(import.meta.url)
 
@@ -65,6 +66,31 @@ export async function expectPdfTextFieldOnPage(
       message: `Expected PDF field "${fieldName}" to render on page ${pageNumber}`
     })
     .toContain(pageNumber)
+}
+
+export async function expectPdfCheckboxWidgetAt(
+  pdfPath: string,
+  fieldName: string,
+  pageNumber: number,
+  x: number,
+  y: number
+) {
+  const pdfDoc = await loadPdf(pdfPath)
+  const field = pdfDoc.getForm().getField(fieldName)
+
+  if (typeof field.isChecked !== 'function') {
+    throw new Error(`PDF field "${fieldName}" is not a checkbox`)
+  }
+
+  const widget = field.acroField.getWidgets()[0]
+  const actualPage = pdfDoc.getPages().findIndex(
+    (page: { ref: unknown }) => page.ref === widget.P()
+  ) + 1
+  const rect = widget.getRectangle()
+
+  expect(actualPage, `Expected checkbox "${fieldName}" to render on page ${pageNumber}`).toBe(pageNumber)
+  expect(rect.x, `Expected checkbox "${fieldName}" x-coordinate to match`).toBeCloseTo(x, 2)
+  expect(rect.y, `Expected checkbox "${fieldName}" y-coordinate to match`).toBeCloseTo(y, 2)
 }
 
 export function renderPdfPages(pdfPath: string, outputRoot: string): string {
@@ -276,42 +302,6 @@ function splitTextIntoFieldValues(field: TemplateField, value: unknown, font: an
     .flatMap(line => wrapText(line, font, fontSize, maxWidth))
 }
 
-function splitTextIntoMappedFieldValues(form: any, field: TemplateField, value: unknown, font: any): string[] {
-  const displayValue = formatFieldValue(field, value)
-  const fieldNames = field.pdfFieldNames ?? []
-
-  if (!displayValue) return []
-  if (field.type !== 'textarea' || fieldNames.length <= 1) {
-    return splitTextIntoFieldValues(field, value, font)
-  }
-
-  const fontSize = field.pdf.fontSize || 10
-  const fallbackWidth = field.pdf.maxWidth || 200
-  const values: string[] = []
-  let fieldIndex = 0
-
-  for (const sourceLine of displayValue.split(/\r?\n/)) {
-    if (fieldIndex >= fieldNames.length) break
-    let width = fallbackWidth
-    try {
-      width = form.getField(fieldNames[fieldIndex]).acroField.getWidgets()[0].getRectangle().width || fallbackWidth
-    } catch {
-      // Use the template width when a test PDF does not expose a widget.
-    }
-
-    const wrapped = sourceLine.trim()
-      ? wrapText(sourceLine, font, fontSize, width)
-      : ['']
-    for (const line of wrapped) {
-      if (fieldIndex >= fieldNames.length) break
-      values.push(line)
-      fieldIndex += 1
-    }
-  }
-
-  return values
-}
-
 export async function expectMappedPdfFieldsToExist(
   pdfPath: string,
   template: PdfTemplate
@@ -350,12 +340,12 @@ export function expectNoCoordinateFallbackChoiceFields(template: PdfTemplate) {
   const candidateFields = template.fields.filter(field => {
     if (field.includeInPdf === false) return false
     if (field.type !== 'checkbox' && field.type !== 'radio') return false
-    return !hasPdfFieldNames(field)
+    return !hasPdfFieldNames(field) && !field.pdfCoordinateOverlay
   })
 
   expect(
     candidateFields.map(field => field.id),
-    'Expected every PDF checkbox/radio to have an explicit mapped PDF field name'
+    'Expected every PDF checkbox/radio to have a mapped widget or an explicit coordinate overlay'
   ).toEqual([])
 }
 

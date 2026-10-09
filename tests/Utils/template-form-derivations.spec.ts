@@ -2,6 +2,22 @@ import { expect, test } from '@playwright/test'
 import { deriveTemplateFormData } from '../../src/utils/templateFormDerivations'
 
 test.describe('Template form derivations', () => {
+  test('derives conservator checkbox marks independently from guardian answers', () => {
+    const derived = deriveTemplateFormData({
+      planDeviated: 'yes',
+      conservatorPlanDeviated: 'no',
+      scopeChangeRecommended: 'no',
+      conservatorScopeChangeRecommended: 'yes'
+    })
+
+    expect(derived.planNotDeviated).toBe(false)
+    expect(derived.conservatorPlanHasDeviated).toBe(false)
+    expect(derived.conservatorPlanNotDeviated).toBe(true)
+    expect(derived.scopeShouldRemainSame).toBe(true)
+    expect(derived.conservatorScopeShouldRemainSame).toBe(false)
+    expect(derived.conservatorScopeShouldChange).toBe(true)
+  })
+
   test('derives estate totals without dollar signs', async () => {
     const derived = deriveTemplateFormData({
       realPropertyWorth1: '4',

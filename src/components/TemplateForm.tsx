@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useForm, SubmitHandler } from 'react-hook-form'
+import { useForm, SubmitHandler, FieldErrors } from 'react-hook-form'
 import type { PdfTemplate, TemplateField, TemplateFormData } from '../types/template.types'
 import { BALANCE_SHEET_OPTIONAL_GROUPS, DynamicForm, SECTION_DISPLAY, SECTION_GROUPS } from './DynamicForm'
 import { getDisplayLabel } from '../utils/fieldLabelHelpers'
@@ -80,6 +80,7 @@ type ReviewAnswer = {
   fieldId: string
   label: string
   value: string
+  signatureImage?: string
 }
 
 type ReviewSection = {
@@ -681,6 +682,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
     formState: { errors },
     watch,
     setValue,
+    setError,
     reset
   } = useForm<TemplateFormData>({
     defaultValues: getDefaultValues(template)
@@ -1008,6 +1010,26 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   }
 
   const requestSubmitConfirmation: SubmitHandler<TemplateFormData> = async (data: TemplateFormData) => {
+    if (
+      typeof data.verificationSignature !== 'string' ||
+      !data.verificationSignature.startsWith('data:image/png;base64,')
+    ) {
+      const signatureStepIndex = formSteps.findIndex(step =>
+        step.fieldIds.includes('verificationSignature')
+      )
+      setError('verificationSignature', {
+        type: 'validate',
+        message: 'Please draw your handwritten signature before submitting.'
+      })
+      if (signatureStepIndex >= 0) {
+        setTransitionDirection('backward')
+        setIsReviewMode(false)
+        setHasReviewReturnPath(true)
+        setCurrentStep(signatureStepIndex)
+      }
+      return
+    }
+
     setConfirmationModal({
       type: 'submit',
       title: 'Submit Form?',
@@ -1062,6 +1084,21 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
     setIsReviewMode(false)
     setHasReviewReturnPath(true)
     setCurrentStep(targetStepIndex)
+  }
+
+  const handleInvalidSubmit = (submitErrors: FieldErrors<TemplateFormData>) => {
+    const firstInvalidField = template.fields.find(field => submitErrors[field.id])
+    if (firstInvalidField) {
+      const targetStepIndex = formSteps.findIndex(formStep =>
+        formStep.fieldIds.includes(firstInvalidField.id)
+      )
+      if (targetStepIndex >= 0) {
+        setTransitionDirection('backward')
+        setIsReviewMode(false)
+        setHasReviewReturnPath(true)
+        setCurrentStep(targetStepIndex)
+      }
+    }
   }
 
   const returnToReview = () => {
@@ -1147,7 +1184,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
 
   return (
     <form
-      onSubmit={handleSubmit(requestSubmitConfirmation)}
+      onSubmit={handleSubmit(requestSubmitConfirmation, handleInvalidSubmit)}
       onKeyDown={handleFormKeyDown}
       className={`template-form ${className}`}
     >
@@ -1260,7 +1297,15 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
                       section.answers.map(answer => (
                         <div key={answer.fieldId} className="review-answer-row">
                           <dt>{answer.label}</dt>
-                          <dd>{answer.value}</dd>
+                          <dd>
+                            {answer.signatureImage ? (
+                              <img
+                                className="review-signature-image"
+                                src={answer.signatureImage}
+                                alt="Your handwritten signature"
+                              />
+                            ) : answer.value}
+                          </dd>
                         </div>
                       ))
                     ) : (
@@ -1293,7 +1338,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
 
                 <button
                   type="button"
-                  onClick={handleSubmit(requestSubmitConfirmation)}
+                  onClick={handleSubmit(requestSubmitConfirmation, handleInvalidSubmit)}
                   disabled={isSubmitting}
                   className="submit-button"
                 >
@@ -1696,6 +1741,8 @@ function getSectionSpecificChunks(
       'undefined_64'
     ])
 
+    pushChunkByNames(['conservatorScopeChangeRecommended'])
+
     pushChunkByNames([
       'Recommended changes in scope of the conservators authority',
       'hasAdditionalScopeChangeDetail2',
@@ -1706,6 +1753,7 @@ function getSectionSpecificChunks(
       'undefined_65'
     ])
 
+    pushChunkByNames(['conservatorPlanDeviated'])
     pushChunkByNames(['conservatorPlanDetail1'])
     pushChunkByNames(['hasAdditionalConservatorPlanDetail2'])
     pushChunkByNames(['conservatorPlanDetail2'])
@@ -1846,6 +1894,7 @@ function getSectionSpecificChunks(
       'undefined_84',
       '  WSBA   CPG'
     ])
+    pushChunkByIds(['verificationSignature'])
 
     return chunks
   }
@@ -2369,7 +2418,12 @@ function buildReviewSections(template: PdfTemplate, formValues: TemplateFormData
     const reviewAnswer: ReviewAnswer = {
       fieldId: field.id,
       label: getDisplayLabel(field.label, formValues.individualName, field.id),
-      value: formatReviewValue(field, fieldValue)
+      value: field.type === 'signature' ? '' : formatReviewValue(field, fieldValue),
+      ...(field.type === 'signature' &&
+        typeof fieldValue === 'string' &&
+        fieldValue.startsWith('data:image/png;base64,')
+        ? { signatureImage: fieldValue }
+        : {})
     }
 
     sections.get(sectionName)?.answers.push(reviewAnswer)
@@ -2389,6 +2443,8 @@ function getDefaultValues(template: PdfTemplate): TemplateFormData {
       defaults[field.id] = field.defaultValue
     } else if (field.type === 'checkbox') {
       defaults[field.id] = false
+    } else if (field.type === 'signature') {
+      defaults[field.id] = ''
     }
   }
 

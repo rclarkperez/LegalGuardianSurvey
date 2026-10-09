@@ -143,6 +143,9 @@ const MULTILINE_DETAIL_FIXTURES = [
   'Services continue without interruption.'
 ]
 
+const CARE_PLAN_CONTINUATION_FIXTURE = 'The current setting continues to meet daily care needs after the team reviewed safety routines and available supports. '.repeat(3).trim()
+const DEVIATION_CONTINUATION_FIXTURE = 'The guardian reviewed the approved plan, documented the reason for each necessary change, and coordinated updated supports with the care team. '.repeat(3).trim()
+
 function parseOrdinalFromLabel(label: string, pattern: RegExp): number | null {
   const match = label.match(pattern)
   if (!match) {
@@ -208,6 +211,7 @@ const FULL_COVERAGE_OVERRIDES: TemplateFormData = {
   bondAmount: '7500',
   newBondAmount: '12000',
   bondNumber: 'BND-240617',
+  professionalServicesProvided: 'Therapy and transportation.',
   reportType: '12',
   finalReportUnblockAccount: 'no',
   futureReportingInterval: '12',
@@ -221,10 +225,14 @@ const FULL_COVERAGE_OVERRIDES: TemplateFormData = {
   visitedOrContactedIndividual: 'yes',
   carePlanConsistent: 'yes',
   carePlanChangeRecommended: 'yes',
+  carePlanChanges: CARE_PLAN_CONTINUATION_FIXTURE,
   individualStatusChangeRequested: 'yes',
   futureCarePlanChanged: 'yes',
   scopeChangeRecommended: 'yes',
   planDeviated: 'yes',
+  deviationExplanation: DEVIATION_CONTINUATION_FIXTURE,
+  conservatorScopeChangeRecommended: 'yes',
+  conservatorPlanDeviated: 'yes',
   accusedOfFraud: 'yes',
   untimelyReports: 'yes',
   monitoredByAgencies: 'yes',
@@ -276,6 +284,7 @@ const FULL_COVERAGE_OVERRIDES: TemplateFormData = {
   hasAdditionalBusinessBenefit3: 'yes',
   hasAdditionalRequestedOrder2: '2',
   showOtherBenefits: true,
+  verificationSignature: '',
   showRealPropertyItem2: true,
   showRealPropertyItem3: true,
   showReceivableItem2: true,

@@ -25,17 +25,15 @@ function getFieldLabelAliases(label: TextMatcher): TextMatcher[] {
   ]
 }
 
-async function getCurrentStepId(page: Page): Promise<string> {
-  return (await currentCard(page).getAttribute('data-step-id')) ?? ''
+async function getCurrentStepId(page: Page): Promise<string | null> {
+  return currentCard(page).getAttribute('data-step-id').catch(() => null)
 }
 
 async function waitForCardChange(page: Page, previousStepId: string) {
-  try {
-    await expect.poll(() => getCurrentStepId(page), { timeout: 1500 }).not.toBe(previousStepId)
-  } catch {
-    // Some branching answers expand the current logical card before the navigation click.
-    // In that case the caller's follow-up assertion verifies the intended destination.
-  }
+  await expect.poll(async () => {
+    const stepId = await getCurrentStepId(page)
+    return stepId && stepId !== previousStepId ? stepId : previousStepId
+  }).not.toBe(previousStepId)
   await expect(currentCardTitle(page)).toBeVisible()
 }
 
@@ -87,12 +85,37 @@ export async function expectCurrentCardNotToContainText(page: Page, matcher: Tex
 
 export async function goToNextCard(page: Page) {
   const previousStepId = await getCurrentStepId(page)
+  if (!previousStepId) {
+    throw new Error('Cannot navigate forward because no current form step is rendered')
+  }
+
   await page.getByRole('button', { name: 'Next' }).click({ force: true })
   await waitForCardChange(page, previousStepId)
 }
 
+export async function drawHandwrittenSignature(page: Page) {
+  const canvas = page.getByLabel('Draw your signature here')
+  const bounds = await canvas.boundingBox()
+  if (!bounds) {
+    throw new Error('The handwritten signature canvas is not visible')
+  }
+
+  await page.mouse.move(bounds.x + bounds.width * 0.08, bounds.y + bounds.height * 0.6)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width * 0.23, bounds.y + bounds.height * 0.32, { steps: 4 })
+  await page.mouse.move(bounds.x + bounds.width * 0.34, bounds.y + bounds.height * 0.72, { steps: 3 })
+  await page.mouse.move(bounds.x + bounds.width * 0.49, bounds.y + bounds.height * 0.38, { steps: 4 })
+  await page.mouse.move(bounds.x + bounds.width * 0.64, bounds.y + bounds.height * 0.64, { steps: 4 })
+  await page.mouse.move(bounds.x + bounds.width * 0.82, bounds.y + bounds.height * 0.43, { steps: 4 })
+  await page.mouse.up()
+}
+
 export async function goToPreviousCard(page: Page) {
   const previousStepId = await getCurrentStepId(page)
+  if (!previousStepId) {
+    throw new Error('Cannot navigate backward because no current form step is rendered')
+  }
+
   await page.getByRole('button', { name: 'Previous' }).click({ force: true })
   await waitForCardChange(page, previousStepId)
 }
@@ -101,7 +124,8 @@ export async function goToPreviousCardUntil(page: Page, matcher: TextMatcher, ma
   for (let index = 0; index < maxSteps; index += 1) {
     const title = (await currentCardTitle(page).textContent()) ?? ''
     const text = (await currentCard(page).textContent()) ?? ''
-    if (matchesText(title, matcher) || matchesText(text, matcher)) {
+    const fieldIsVisible = await fieldInCurrentCard(page, matcher).isVisible().catch(() => false)
+    if (fieldIsVisible || matchesText(title, matcher) || matchesText(text, matcher)) {
       return
     }
 

@@ -19,6 +19,8 @@ export type FieldType =
   | 'signature'
   | 'file'
 
+export type FieldInputFormat = 'digits' | 'postal-code' | 'phone'
+
 /** PDF coordinate system for field placement */
 export interface PdfCoordinate {
   /** Page number (0-indexed) */
@@ -70,11 +72,13 @@ export interface TemplateField {
   defaultValue?: any
   /** Validation rules */
   validation?: FieldValidation
+  /** Restricts text input to a numeric identifier format. */
+  inputFormat?: FieldInputFormat
   /** Options for radio/select fields */
   options?: FieldOption[]
   /** Fillable PDF field names to populate before any coordinate fallback */
   pdfFieldNames?: string[]
-  /** Keep the mapped value, but redraw it over the source widget at calibrated coordinates. */
+  /** Render at calibrated coordinates when no fillable widget exists, or redraw over a mapped widget. */
   pdfCoordinateOverlay?: boolean
   /** PDF placement coordinates */
   pdf: PdfCoordinate

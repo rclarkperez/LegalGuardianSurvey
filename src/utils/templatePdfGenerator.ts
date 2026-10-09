@@ -327,21 +327,53 @@ export function splitTextIntoMappedFieldValues(
   let fieldIndex = 0
 
   for (const sourceLine of displayValue.split(/\r?\n/)) {
-    if (fieldIndex >= fieldNames.length) break
+    if (fieldIndex >= fieldNames.length && sourceLine.trim()) {
+      throw new PdfFieldOverflowError(field.id)
+    }
+    if (fieldIndex >= fieldNames.length) {
+      continue
+    }
 
-    const width = getPdfFieldWidth(form, fieldNames[fieldIndex], fallbackWidth)
-    const wrapped = sourceLine.trim()
-      ? wrapText(sourceLine, font, fontSize, width)
-      : ['']
+    const words = sourceLine.trim().split(/\s+/).filter(Boolean)
+    if (words.length === 0) {
+      values.push('')
+      fieldIndex += 1
+      continue
+    }
 
-    for (const line of wrapped) {
-      if (fieldIndex >= fieldNames.length) break
+    while (words.length > 0) {
+      if (fieldIndex >= fieldNames.length) {
+        throw new PdfFieldOverflowError(field.id)
+      }
+
+      const width = Math.max(
+        1,
+        getPdfFieldWidth(form, fieldNames[fieldIndex], fallbackWidth) - 10
+      )
+      let line = ''
+
+      while (words.length > 0) {
+        const nextLine = line ? `${line} ${words[0]}` : words[0]
+        if (line && font.widthOfTextAtSize(nextLine, fontSize) > width) {
+          break
+        }
+        line = nextLine
+        words.shift()
+      }
+
       values.push(line)
       fieldIndex += 1
     }
   }
 
   return values
+}
+
+class PdfFieldOverflowError extends Error {
+  constructor(fieldId: string) {
+    super(`The answer for "${fieldId}" is too long for the available PDF continuation fields.`)
+    this.name = 'PdfFieldOverflowError'
+  }
 }
 
 function fillPdfFormField(
@@ -466,6 +498,55 @@ function hideMappedTextFieldWidget(form: any, field: TemplateField): void {
       // A conditional field may not exist in every source PDF revision.
     }
   })
+}
+
+async function renderSignature(
+  pdfDoc: PDFDocument,
+  pages: ReturnType<PDFDocument['getPages']>,
+  form: any,
+  template: PdfTemplate,
+  field: TemplateField,
+  value: string
+): Promise<boolean> {
+  const imagePrefix = 'data:image/png;base64,'
+  if (!value.startsWith(imagePrefix)) {
+    throw new Error(`The signature for "${field.id}" must be drawn by hand in the signature box.`)
+  }
+
+  const fieldName = field.pdfFieldNames?.[0]
+  if (!fieldName) {
+    throw new Error(`No PDF signature field is mapped for "${field.id}".`)
+  }
+
+  const pdfField = form.getField(fieldName)
+  const widget = pdfField.acroField.getWidgets()[0]
+  const rectangle = widget.getRectangle()
+  const page = pages.find(candidate => candidate.ref === widget.P())
+    ?? pages[resolvePageIndex(template, field.pdf.page)]
+
+  if (!page) {
+    throw new Error(`Unable to find the PDF page for signature field "${field.id}".`)
+  }
+
+  hidePdfFieldWidget(form, fieldName)
+
+  const base64 = value.slice(imagePrefix.length)
+  const imageBytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
+  const image = await pdfDoc.embedPng(imageBytes)
+  const scale = Math.min(
+    rectangle.width / image.width,
+    rectangle.height / image.height
+  )
+  const width = image.width * scale
+  const height = image.height * scale
+
+  page.drawImage(image, {
+    x: rectangle.x + (rectangle.width - width) / 2,
+    y: rectangle.y + (rectangle.height - height) / 2,
+    width,
+    height
+  })
+  return true
 }
 
 function createCheckboxXAppearance(_checkBox: any, widget: any) {
@@ -676,7 +757,9 @@ export async function generatePdfFromTemplate(
 
         const useCoordinateOnlyRendering = shouldUseCoordinateOnlyRendering(field)
 
-        if (!useCoordinateOnlyRendering && hasPdfFieldNames(field)) {
+        if (field.type === 'signature') {
+          filled = await renderSignature(pdfDoc, pages, form, template, field, String(value))
+        } else if (!useCoordinateOnlyRendering && hasPdfFieldNames(field)) {
           filled = fillMappedPdfFields(form, availableFieldNames, field, value, font)
         }
 
@@ -706,6 +789,9 @@ export async function generatePdfFromTemplate(
         fieldsFilled++
       } catch (error) {
         console.error(`Error filling field ${field.id}:`, error)
+        if (field.type === 'signature' || error instanceof PdfFieldOverflowError) {
+          throw error
+        }
         skippedFields.push(field.id)
       }
     }

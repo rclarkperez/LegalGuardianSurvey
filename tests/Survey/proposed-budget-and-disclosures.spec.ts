@@ -14,6 +14,38 @@ import {
 
 test.describe('Proposed Budget and Disclosures', () => {
   test.describe('Conservator Explanations', () => {
+    test('asks separately whether the conservator deviated from the approved plan', async ({ page }) => {
+      await gotoForm(page)
+      await goToCardWithText(page, /Has the conservator deviated from the approved plan/i)
+
+      await answerRadioQuestion(page, /Has the conservator deviated from the approved plan/i, 'Yes')
+      await goToNextCard(page)
+
+      await expect(
+        fieldInCurrentCard(page, /Describe one way the conservator deviated from the approved plan/i)
+      ).toBeVisible()
+    })
+
+    test('asks separately whether the conservator recommends a scope change', async ({ page }) => {
+      await gotoForm(page)
+      await goToCardWithText(page, /Do you recommend changes to the scope of the conservator’s authority/i)
+
+      await answerRadioQuestion(
+        page,
+        /Do you recommend changes to the scope of the conservator’s authority/i,
+        'Yes'
+      )
+      await goToNextCard(page)
+
+      await expect(
+        fieldInCurrentCard(page, /Describe the recommended change in scope of authority/i)
+      ).toBeVisible()
+      await expectCurrentCardNotToContainText(
+        page,
+        /Describe the first recommended change to the conservator plan/i
+      )
+    })
+
     test('skips the first large-expenditure detail when the user answers no', async ({ page }) => {
       await gotoForm(page)
       await goToCardWithText(page, /need to explain a large or unusual expenditure, adjustment, or purchase/i)
@@ -40,7 +72,10 @@ test.describe('Proposed Budget and Disclosures', () => {
       await goToNextCard(page)
 
       await expectCurrentCardNotToContainText(page, /Describe a service or support the protected person receives/i)
-      await expectCurrentCardToContainText(page, /another conservator-plan deviation to describe/i)
+      await expectCurrentCardToContainText(
+        page,
+        /Do you recommend changes to the scope of the conservator’s authority/i
+      )
     })
   })
 

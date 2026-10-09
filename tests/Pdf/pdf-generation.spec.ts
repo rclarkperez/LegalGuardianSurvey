@@ -8,6 +8,7 @@ import { pdfPageFourFixture } from '../fixtures/pdf-fixture'
 import {
   answerRadioQuestion,
   currentCard,
+  drawHandwrittenSignature,
   goToCardByTitle,
   goToCardWithFieldLabel,
   goToCardWithText,
@@ -17,6 +18,7 @@ import {
 import {
   downloadGeneratedPdf,
   expectCoordinateOnlyPdfFieldsToFitWithinBounds,
+  expectPdfCheckboxWidgetAt,
   expectMappedPdfFieldsToExist,
   expectNoCoordinateFallbackChoiceFields,
   expectPdfTextFieldOnPage,
@@ -26,6 +28,7 @@ import {
 } from '../helpers/pdf-helpers'
 import process from 'node:process'
 import { Buffer } from 'node:buffer'
+import { PDFDict, PDFDocument, PDFName } from 'pdf-lib'
 
 const STABLE_PDF_ARTIFACT_DIR = path.join(process.cwd(), 'artifacts', 'generated-pdfs')
 
@@ -97,10 +100,14 @@ test.describe('PDF generation regression coverage', () => {
     await expectPdfTextFieldOnPage(pdfPath, 'undefined_16', '335.00', 4)
   })
 
-  test('whole generated pdf keeps mapped text values inside actual PDF input fields', async ({ browserName: _browserName }, testInfo) => {
+  test('whole generated pdf keeps mapped text and handwritten signature inside the PDF', async ({ page }, testInfo) => {
     const { generatePdfFromTemplate } = await import('../../src/utils/templatePdfGenerator')
+    await gotoForm(page)
+    await goToCardWithFieldLabel(page, /Draw your signature here/i)
+    await drawHandwrittenSignature(page)
     const formData = buildWholePdfFixture()
-    const pdfTemplatePath = path.join(process.cwd(), 'public', 'GuardianShipFormFillable2.pdf')
+    formData.verificationSignature = await page.locator('input[name="verificationSignature"]').inputValue()
+    const pdfTemplatePath = path.join(process.cwd(), 'public', 'GuardianShipFormFillable.pdf')
     const templateBytes = readFileSync(pdfTemplatePath)
     const pdfBlob = await generatePdfFromTemplate(
       guardianShipFormTemplate,
@@ -111,16 +118,77 @@ test.describe('PDF generation regression coverage', () => {
       )
     )
     const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer())
+    const generatedPdf = await PDFDocument.load(pdfBuffer)
     const pdfPath = path.join(testInfo.outputDir, 'generated-full-pdf-regression.pdf')
 
     mkdirSync(path.dirname(pdfPath), { recursive: true })
     writeFileSync(pdfPath, pdfBuffer)
     saveStablePdfArtifact(pdfPath, 'generated-full-pdf-regression.pdf')
 
+    const signatureImageResources = generatedPdf.getPages()[13].node
+      .Resources()
+      ?.lookup(PDFName.of('XObject'), PDFDict)
+    expect(signatureImageResources?.keys().some(name => name.toString().startsWith('/Image-'))).toBe(true)
+
     await expectPdfTemplateTextMappingsToPopulateInputs(pdfPath, guardianShipFormTemplate, formData)
     await expectMappedPdfFieldsToExist(pdfPath, guardianShipFormTemplate)
     expectNoCoordinateFallbackChoiceFields(guardianShipFormTemplate)
     await expectCoordinateOnlyPdfFieldsToFitWithinBounds(guardianShipFormTemplate, formData)
+    const benefitFieldMappings = [
+      ['ssdiAmount', 'undefined_3'],
+      ['medicaidAmount', 'undefined_4'],
+      ['ssiAmount', 'undefined_5'],
+      ['medicareAmount', 'undefined_6'],
+      ['gAUAmount', 'undefined_7'],
+      ['copesAmount', 'undefined_8'],
+      ['vaPensionAmount', 'undefined_9'],
+      ['tanfAmount', 'undefined_10'],
+      ['liBenefitsAmount', 'undefined_11'],
+      ['hudAmount', 'undefined_12'],
+      ['foodStampsAmount', 'undefined_13'],
+      ['ddaAmount', 'undefined_14']
+    ] as const
+    for (const [fieldId, pdfFieldName] of benefitFieldMappings) {
+      const expected = Number(formData[fieldId]).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+      expect(await getPdfTextFieldValue(pdfPath, pdfFieldName)).toBe(expected)
+      expect(await getPdfFieldWidgetPages(pdfPath, pdfFieldName)).toContain(3)
+    }
+
+    const carePlanContinuationFields = [
+      'or    the guardian recommends these changes',
+      '1_3',
+      '2_3',
+      '3_2',
+      '4'
+    ]
+    const carePlanContinuationValues = await Promise.all(
+      carePlanContinuationFields.map(fieldName => getPdfTextFieldValue(pdfPath, fieldName))
+    )
+    expect(carePlanContinuationValues.every(Boolean)).toBe(true)
+    expect(carePlanContinuationValues.join(' ')).toBe(
+      String(formData.carePlanChanges).replace(/\s+/g, ' ').trim()
+    )
+    for (const fieldName of carePlanContinuationFields.slice(1)) {
+      expect(await getPdfFieldWidgetPages(pdfPath, fieldName)).toContain(7)
+    }
+
+    const deviationContinuationFields = ['why 1', 'why 2', '1_5', '2_5', '3_4']
+    const deviationContinuationValues = await Promise.all(
+      deviationContinuationFields.map(fieldName => getPdfTextFieldValue(pdfPath, fieldName))
+    )
+    expect(deviationContinuationValues.every(Boolean)).toBe(true)
+    expect(deviationContinuationValues.join(' ')).toBe(
+      String(formData.deviationExplanation).replace(/\s+/g, ' ').trim()
+    )
+    for (const fieldName of deviationContinuationFields.slice(2)) {
+      expect(await getPdfFieldWidgetPages(pdfPath, fieldName)).toContain(8)
+    }
+
+    expect(await getPdfTextFieldValue(pdfPath, '1_2')).not.toMatch(/^\d[\d,]*(?:\.\d{2})?$/)
+    expect(await getPdfTextFieldValue(pdfPath, '2_2')).not.toMatch(/^\d[\d,]*(?:\.\d{2})?$/)
     for (const fieldName of ['fill_33', 'fill_35', 'fill_37']) {
       const value = await getPdfTextFieldValue(pdfPath, fieldName)
       expect(value, `Expected estate expense field "${fieldName}" to be populated`).toMatch(/^\d[\d,]*(?:\.\d{2})?$/)
@@ -132,16 +200,86 @@ test.describe('PDF generation regression coverage', () => {
       'Supported decision-making coaching,',
       5
     )
+    await expectPdfTextFieldOnPage(
+      pdfPath,
+      'changed as follows 1_2',
+      String(formData.conservatorScopeChangeDetailsSource),
+      12
+    )
+    await expectPdfTextFieldOnPage(
+      pdfPath,
+      '1_9',
+      String(formData.conservatorPlanDetail1),
+      13
+    )
+    await expectPdfCheckboxWidgetAt(pdfPath, 'Check Box6', 1, 348.875, 484.69)
+    await expectPdfCheckboxWidgetAt(pdfPath, 'Check Box8', 1, 348.874, 453.271)
+    await expectPdfCheckboxWidgetAt(pdfPath, 'Check Box9', 1, 348.875, 438.217)
+  })
+
+  test('rejects care-plan answers that exceed the mapped continuation fields', async () => {
+    const { generatePdfFromTemplate } = await import('../../src/utils/templatePdfGenerator')
+    const templateBytes = readFileSync(path.join(process.cwd(), 'public', 'GuardianShipFormFillable.pdf'))
+    const pdfBuffer = templateBytes.buffer.slice(
+      templateBytes.byteOffset,
+      templateBytes.byteOffset + templateBytes.byteLength
+    )
+
+    await expect(generatePdfFromTemplate(
+      guardianShipFormTemplate,
+      {
+        carePlanChangeRecommended: 'yes',
+        carePlanChanges: Array(100).fill('care plan continuation answer').join(' ')
+      },
+      pdfBuffer
+    )).rejects.toThrow(/too long for the available PDF continuation fields/i)
+  })
+
+  test('embeds a handwritten UI signature on page 14 and hides the blank source widget', async ({ page }) => {
+    await gotoForm(page)
+    await goToCardWithFieldLabel(page, /Draw your signature here/i)
+    await drawHandwrittenSignature(page)
+    const signatureImage = await page.locator('input[name="verificationSignature"]').inputValue()
+    expect(signatureImage).toMatch(/^data:image\/png;base64,/)
+
+    const { generatePdfFromTemplate } = await import('../../src/utils/templatePdfGenerator')
+    const templateBytes = readFileSync(path.join(process.cwd(), 'public', 'GuardianShipFormFillable.pdf'))
+    const templateBuffer = templateBytes.buffer.slice(
+      templateBytes.byteOffset,
+      templateBytes.byteOffset + templateBytes.byteLength
+    )
+
+    await expect(generatePdfFromTemplate(
+      guardianShipFormTemplate,
+      { verificationSignature: 'Maya Chen' },
+      templateBuffer
+    )).rejects.toThrow(/must be drawn by hand/i)
+
+    const pdfBlob = await generatePdfFromTemplate(
+      guardianShipFormTemplate,
+      { verificationSignature: signatureImage },
+      templateBuffer
+    )
+    const generatedPdf = await PDFDocument.load(await pdfBlob.arrayBuffer())
+    const imageResources = generatedPdf.getPages()[13].node
+      .Resources()
+      ?.lookup(PDFName.of('XObject'), PDFDict)
+    const signatureField = generatedPdf.getForm().getTextField('Signature1_es_:signer:signature')
+
+    expect(imageResources?.keys().some(name => name.toString().startsWith('/Image-'))).toBe(true)
+    expect(signatureField.acroField.getWidgets()[0].getFlags() & 2).toBe(2)
+    expect(signatureField.getText() ?? '').toBe('')
   })
 
   test('derived account totals and changed bond amount are written into the PDF', async ({ browserName: _browserName }, testInfo) => {
     const { generatePdfFromTemplate } = await import('../../src/utils/templatePdfGenerator')
-    const pdfTemplatePath = path.join(process.cwd(), 'public', 'GuardianShipFormFillable2.pdf')
+    const pdfTemplatePath = path.join(process.cwd(), 'public', 'GuardianShipFormFillable.pdf')
     const templateBytes = readFileSync(pdfTemplatePath)
     const formData: TemplateFormData = {
       bondInPlace: 'yes',
       bondRecommendation: 'change',
       newBondAmount: '12345',
+      ddaAmount: '765.43',
       realPropertyWorth1: '400',
       realPropertyWorth2: '300',
       realPropertyWorth3: '300',
@@ -204,7 +342,7 @@ test.describe('PDF generation regression coverage', () => {
     writeFileSync(pdfPath, pdfBuffer)
     saveStablePdfArtifact(pdfPath, 'generated-derived-bond-regression.pdf')
 
-    await expectPdfTextFieldOnPage(pdfPath, 'undefined_14', '660', 3)
+    await expectPdfTextFieldOnPage(pdfPath, 'undefined_14', '765.43', 3)
     await expectPdfTextFieldOnPage(pdfPath, 'The total assets in blocked accounts is', '1,650', 3)
     await expectPdfTextFieldOnPage(pdfPath, 'The bond should    remain or    should be changed to', '12,345.00', 4)
     await expectPdfTextFieldOnPage(pdfPath, 'undefined_27', '600.00', 9)
@@ -221,7 +359,7 @@ test.describe('PDF generation regression coverage', () => {
 
   test('derived proposed-budget totals are written into the PDF', async ({ browserName: _browserName }, testInfo) => {
     const { generatePdfFromTemplate } = await import('../../src/utils/templatePdfGenerator')
-    const pdfTemplatePath = path.join(process.cwd(), 'public', 'GuardianShipFormFillable2.pdf')
+    const pdfTemplatePath = path.join(process.cwd(), 'public', 'GuardianShipFormFillable.pdf')
     const templateBytes = readFileSync(pdfTemplatePath)
     const formData: TemplateFormData = {
       undefined_67: '100',
@@ -331,6 +469,11 @@ async function goToReviewPage(page: Parameters<typeof gotoForm>[0]) {
   for (let index = 0; index < 200; index += 1) {
     if (await page.getByRole('button', { name: 'Submit' }).isVisible()) {
       return
+    }
+
+    const signatureCanvas = page.getByLabel('Draw your signature here')
+    if (await signatureCanvas.isVisible().catch(() => false)) {
+      await drawHandwrittenSignature(page)
     }
 
     await goToNextCard(page)

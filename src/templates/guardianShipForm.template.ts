@@ -42,6 +42,8 @@ type SupplementalFieldOverride = {
   id?: string
   label?: string
   type?: TemplateField['type']
+  inputFormat?: TemplateField['inputFormat']
+  validation?: TemplateField['validation']
   includeInForm?: boolean
   includeInPdf?: boolean
   pdfFieldNames?: string[]
@@ -407,12 +409,13 @@ const SUPPLEMENTAL_FIELD_OVERRIDES: Record<string, SupplementalFieldOverride> = 
     id: 'conservatorScopeChangeDetailsSource',
     label: 'Describe the recommended change in scope of authority',
     includeInPdf: false,
-    conditional: { fieldId: 'scopeChangeRecommended', equals: 'yes' }
+    conditional: { fieldId: 'conservatorScopeChangeRecommended', equals: 'yes' }
   },
   '12|changed as follows 1_2': {
     id: 'conservatorScopeChangeDetails1',
     label: 'Describe the first recommended change to the conservator plan',
-    conditional: { fieldId: 'scopeChangeRecommended', equals: 'yes' }
+    includeInForm: false,
+    conditional: { fieldId: 'conservatorScopeChangeRecommended', equals: 'yes' }
   },
   '12|changed as follows 2_2': {
     id: 'conservatorScopeChangeDetails2',
@@ -601,7 +604,7 @@ const SUPPLEMENTAL_FIELD_OVERRIDES: Record<string, SupplementalFieldOverride> = 
     id: 'conservatorPlanDetail1',
     label: 'Describe one way the conservator deviated from the approved plan',
     section: 'Conservator Explanations & Plan',
-    conditional: { fieldId: 'planDeviated', equals: 'yes' }
+    conditional: { fieldId: 'conservatorPlanDeviated', equals: 'yes' }
   },
   '13|2_9': {
     id: 'conservatorPlanDetail2',
@@ -939,6 +942,17 @@ function resolveSupplementalFieldMeta(
 ): SupplementalFieldOverride {
   const exactOverride = SUPPLEMENTAL_FIELD_OVERRIDES[`${pageNumber}|${fieldName}`]
   if (exactOverride) {
+    if (fieldName.startsWith('Account No last 4 digits')) {
+      return {
+        ...exactOverride,
+        inputFormat: 'digits',
+        validation: {
+          ...exactOverride.validation,
+          maxLength: 4,
+          pattern: /^\d{4}$/
+        }
+      }
+    }
     return exactOverride
   }
 
@@ -1336,6 +1350,8 @@ function createBalanceSheetCityStateZipFields(
       id: config.zipId,
       label: `${config.institutionLabel} ZIP Code`,
       type: 'text',
+      inputFormat: 'postal-code',
+      validation: { pattern: /^\d{5}(?:-\d{4})?$/ },
       section: baseField.section,
       width: 4,
       includeInPdf: false,
@@ -1844,6 +1860,36 @@ const supplementalCheckboxFields: TemplateField[] = [
     pdf: { page: 7, x: 434.62, y: 118.797, fontSize: 10 }
   },
   {
+    id: 'conservatorPlanDeviated',
+    label: 'Has the conservator deviated from the approved plan?',
+    type: 'radio',
+    section: 'Conservator Explanations & Plan',
+    width: 12,
+    options: YES_NO_OPTIONS,
+    includeInPdf: false,
+    pdf: { page: 12, x: 330.44, y: 96.73, fontSize: 10 }
+  },
+  {
+    id: 'conservatorPlanHasDeviated',
+    label: 'Conservator Has Deviated from the Plan',
+    type: 'checkbox',
+    section: 'Conservator Explanations & Plan',
+    width: 12,
+    includeInForm: false,
+    pdfCoordinateOverlay: true,
+    pdf: { page: 12, x: 409, y: 96.73, fontSize: 10 }
+  },
+  {
+    id: 'conservatorPlanNotDeviated',
+    label: 'Conservator Has Not Deviated from the Plan',
+    type: 'checkbox',
+    section: 'Conservator Explanations & Plan',
+    width: 12,
+    includeInForm: false,
+    pdfCoordinateOverlay: true,
+    pdf: { page: 12, x: 448.14, y: 96.73, fontSize: 10 }
+  },
+  {
     id: 'futureCarePlanSame',
     label: 'Future Care Plan Remains the Same',
     type: 'checkbox',
@@ -1884,6 +1930,36 @@ const supplementalCheckboxFields: TemplateField[] = [
     pdf: { page: 8, x: 445.747, y: 478.799, fontSize: 10 }
   },
   {
+    id: 'conservatorScopeChangeRecommended',
+    label: 'Do you recommend changes to the scope of the conservator’s authority?',
+    type: 'radio',
+    section: 'Conservator Explanations & Plan',
+    width: 12,
+    options: YES_NO_OPTIONS,
+    includeInPdf: false,
+    pdf: { page: 12, x: 306.81, y: 221.17, fontSize: 10 }
+  },
+  {
+    id: 'conservatorScopeShouldRemainSame',
+    label: 'Conservator Authority Scope Should Remain the Same',
+    type: 'checkbox',
+    section: 'Conservator Explanations & Plan',
+    width: 12,
+    includeInForm: false,
+    pdfCoordinateOverlay: true,
+    pdf: { page: 12, x: 304.6, y: 221.17, fontSize: 10 }
+  },
+  {
+    id: 'conservatorScopeShouldChange',
+    label: 'Conservator Authority Scope Should Change',
+    type: 'checkbox',
+    section: 'Conservator Explanations & Plan',
+    width: 12,
+    includeInForm: false,
+    pdfCoordinateOverlay: true,
+    pdf: { page: 12, x: 446.47, y: 221.17, fontSize: 10 }
+  },
+  {
     id: 'isWsba',
     label: 'Are you a WSBA member?',
     type: 'radio',
@@ -1902,6 +1978,16 @@ const supplementalCheckboxFields: TemplateField[] = [
     options: YES_NO_OPTIONS,
     pdfFieldNames: ['Check Box46'],
     pdf: { page: 14, x: 485.02, y: 345.925, fontSize: 10 }
+  },
+  {
+    id: 'verificationSignature',
+    label: 'Sign here to confirm this report',
+    type: 'signature',
+    section: 'Verification',
+    width: 12,
+    validation: { required: 'Please add your signature before submitting.' },
+    pdfFieldNames: ['Signature1_es_:signer:signature'],
+    pdf: { page: 14, x: 72, y: 363.6, fontSize: 12, maxWidth: 207.12 }
   }
 ]
 
@@ -2114,6 +2200,8 @@ const supplementalTextFields: TemplateField[] = supplementalTextFieldSpecs.flatM
     id: resolvedMeta.id || slugifySupplementalFieldName(fieldName, index),
     label,
     type: resolvedType,
+    inputFormat: resolvedMeta.inputFormat,
+    validation: resolvedMeta.validation,
     section: resolvedMeta.section || supplementalSectionByPage[pageNumber] || 'Supplemental PDF Fields',
     width: resolvedMeta.width ?? (resolvedType === 'textarea' ? 12 : resolvedType === 'checkbox' ? 3 : 4),
     includeInForm: resolvedMeta.includeInForm ?? !isLegacySupplementalPage,
@@ -2396,6 +2484,7 @@ const supplementalPromptFields: TemplateField[] = [
     width: 12,
     options: YES_NO_OPTIONS,
     includeInPdf: false,
+    conditional: { fieldId: 'conservatorPlanDeviated', equals: 'yes' },
     pdf: { page: 13, x: 108, y: 699, fontSize: 10, maxWidth: 420 }
   },
   {
@@ -2406,7 +2495,7 @@ const supplementalPromptFields: TemplateField[] = [
     width: 12,
     options: YES_NO_OPTIONS,
     includeInPdf: false,
-    conditional: { fieldId: 'scopeChangeRecommended', equals: 'yes' },
+    conditional: { fieldId: 'conservatorScopeChangeRecommended', equals: 'yes' },
     pdf: { page: 12, x: 108, y: 242, fontSize: 10, maxWidth: 420 }
   },
   {
@@ -2791,7 +2880,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
   name: 'Guardian/Conservator\'s Report',
   version: '1.0.0',
   description: 'Annual report form for guardians and conservators',
-  pdfPath: '/GuardianShipFormFillable2.pdf',
+  pdfPath: '/GuardianShipFormFillable.pdf',
   defaultFont: 'Helvetica',
   pageSize: {
     width: 612,  // US Letter width in points (8.5")
@@ -2858,7 +2947,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
       includeInForm: false,
       validation: { required: 'Select at least one report type' },
       pdfFieldNames: ['Check Box6'],
-      pdf: { page: 1, x: 348.22, y: 484.69, fontSize: 10 }
+      pdf: { page: 1, x: 348.875, y: 484.69, fontSize: 10 }
     },
     {
       id: 'reportType24Month',
@@ -2878,7 +2967,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
       width: 6,
       includeInForm: false,
       pdfFieldNames: ['Check Box8'],
-      pdf: { page: 1, x: 347.565, y: 453.271, fontSize: 10 }
+      pdf: { page: 1, x: 348.874, y: 453.271, fontSize: 10 }
     },
     {
       id: 'reportTypeFinal',
@@ -2888,7 +2977,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
       width: 6,
       includeInForm: false,
       pdfFieldNames: ['Check Box9'],
-      pdf: { page: 1, x: 348.22, y: 438.217, fontSize: 10 }
+      pdf: { page: 1, x: 348.875, y: 438.217, fontSize: 10 }
     },
 
     // Scope Checkboxes
@@ -3007,6 +3096,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       id: 'individualZip',
       label: 'What is the protected person’s ZIP code?',
       type: 'text',
+      inputFormat: 'postal-code',
+      validation: { pattern: /^\d{5}(?:-\d{4})?$/ },
       section: 'Individual Information',
       width: 4,
       pdfFieldNames: ['IndividualZip Code'],
@@ -3016,6 +3107,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       id: 'individualPhone',
       label: 'What is the protected person’s phone number?',
       type: 'tel',
+      inputFormat: 'phone',
+      validation: { pattern: /^(?=.*\d)\+?[\d\s().-]+$/ },
       section: 'Individual Information',
       width: 6,
       pdfFieldNames: ['IndividualTelephone'],
@@ -3025,6 +3118,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       id: 'individualFax',
       label: 'What is the protected person’s fax number?',
       type: 'tel',
+      inputFormat: 'phone',
+      validation: { pattern: /^(?=.*\d)\+?[\d\s().-]+$/ },
       section: 'Individual Information',
       width: 6,
       pdfFieldNames: ['IndividualFax Number'],
@@ -3093,6 +3188,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       id: 'guardianZip',
       label: 'What is your ZIP code?',
       type: 'text',
+      inputFormat: 'postal-code',
+      validation: { pattern: /^\d{5}(?:-\d{4})?$/ },
       section: 'Guardian Information',
       width: 4,
       pdfFieldNames: ['GuardianConservatorZip Code'],
@@ -3102,6 +3199,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       id: 'guardianPhone',
       label: 'What is your phone number?',
       type: 'tel',
+      inputFormat: 'phone',
+      validation: { pattern: /^(?=.*\d)\+?[\d\s().-]+$/ },
       section: 'Guardian Information',
       width: 6,
       pdfFieldNames: ['GuardianConservatorTelephone'],
@@ -3111,6 +3210,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       id: 'guardianFax',
       label: 'What is your fax number?',
       type: 'tel',
+      inputFormat: 'phone',
+      validation: { pattern: /^(?=.*\d)\+?[\d\s().-]+$/ },
       section: 'Guardian Information',
       width: 6,
       pdfFieldNames: ['GuardianConservatorFax Number'],
@@ -3297,7 +3398,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
       section: 'Reporting Criteria',
       width: 12,
       conditional: { fieldId: 'monitoredByAgencies', equals: 'yes' },
-      pdfFieldNames: ['Other'],
+      pdfFieldNames: ['Other', '1_2', '2_2'],
       pdf: { page: 2, x: 160, y: 285, fontSize: 9, maxWidth: 420 }
     },
 
@@ -3463,8 +3564,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['1_2'],
-      pdf: { page: 3, x: 450, y: 750, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_3'],
+      pdf: { page: 3, x: 204.12, y: 373.2, fontSize: 10, maxWidth: 83.88 }
     },
     {
       id: 'ssiAmount',
@@ -3472,8 +3573,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['2_2'],
-      pdf: { page: 3, x: 450, y: 738, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_5'],
+      pdf: { page: 3, x: 204.12, y: 354.6, fontSize: 10, maxWidth: 83.88 }
     },
     {
       id: 'vaPensionAmount',
@@ -3481,8 +3582,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_3'],
-      pdf: { page: 3, x: 450, y: 726, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_9'],
+      pdf: { page: 3, x: 204.12, y: 317.28, fontSize: 10, maxWidth: 83.88 }
     },
     {
       id: 'gAUAmount',
@@ -3490,8 +3591,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_4'],
-      pdf: { page: 3, x: 450, y: 714, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_7'],
+      pdf: { page: 3, x: 204.12, y: 335.88, fontSize: 10, maxWidth: 83.88 }
     },
     {
       id: 'foodStampsAmount',
@@ -3499,8 +3600,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_8'],
-      pdf: { page: 3, x: 450, y: 702, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_13'],
+      pdf: { page: 3, x: 204.12, y: 279.96, fontSize: 10, maxWidth: 83.88 }
     },
     {
       id: 'medicaidAmount',
@@ -3508,8 +3609,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_5'],
-      pdf: { page: 3, x: 450, y: 690, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_4'],
+      pdf: { page: 3, x: 402.12, y: 373.2, fontSize: 10, maxWidth: 98.88 }
     },
     {
       id: 'medicareAmount',
@@ -3518,7 +3619,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
       section: 'Benefits',
       width: 3,
       pdfFieldNames: ['undefined_6'],
-      pdf: { page: 3, x: 450, y: 678, fontSize: 10, maxWidth: 100 }
+      pdf: { page: 3, x: 402.12, y: 354.6, fontSize: 10, maxWidth: 102 }
     },
     {
       id: 'copesAmount',
@@ -3526,8 +3627,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_7'],
-      pdf: { page: 3, x: 450, y: 666, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_8'],
+      pdf: { page: 3, x: 402.12, y: 335.88, fontSize: 10, maxWidth: 98.88 }
     },
     {
       id: 'tanfAmount',
@@ -3535,8 +3636,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_9'],
-      pdf: { page: 3, x: 450, y: 654, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_10'],
+      pdf: { page: 3, x: 402.12, y: 317.28, fontSize: 10, maxWidth: 98.88 }
     },
     {
       id: 'hudAmount',
@@ -3544,8 +3645,17 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_10'],
-      pdf: { page: 3, x: 450, y: 642, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_12'],
+      pdf: { page: 3, x: 402.12, y: 298.56, fontSize: 10, maxWidth: 98.88 }
+    },
+    {
+      id: 'liBenefitsAmount',
+      label: 'Labor and Industries (L&I) Benefits ($)',
+      type: 'number',
+      section: 'Benefits',
+      width: 3,
+      pdfFieldNames: ['undefined_11'],
+      pdf: { page: 3, x: 204.12, y: 298.56, fontSize: 10, maxWidth: 83.88 }
     },
     {
       id: 'ddaAmount',
@@ -3553,8 +3663,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Benefits',
       width: 3,
-      pdfFieldNames: ['undefined_11'],
-      pdf: { page: 3, x: 450, y: 630, fontSize: 10, maxWidth: 100 }
+      pdfFieldNames: ['undefined_14'],
+      pdf: { page: 3, x: 402.12, y: 279.96, fontSize: 10, maxWidth: 98.88 }
     },
     {
       id: 'otherBenefits',
@@ -3680,8 +3790,9 @@ export const guardianShipFormTemplate: PdfTemplate = {
       type: 'number',
       section: 'Inventory & Bond',
       includeInForm: false,
+      includeInPdf: false,
       width: 6,
-      pdfFieldNames: ['undefined_14'],
+      pdfFieldNames: [],
       conditional: { fieldId: 'bondInPlace', equals: 'yes' },
       pdf: { page: 3, x: 450, y: 463, fontSize: 10, maxWidth: 120 }
     },
@@ -4044,7 +4155,6 @@ export const guardianShipFormTemplate: PdfTemplate = {
       section: "Guardian's Report",
       width: 12,
       pdfFieldNames: [
-        'Social Arrangements',
         'The Individuals social arrangements including any changes during the reporting period 1',
         'The Individuals social arrangements including any changes during the reporting period 2',
         'The Individuals social arrangements including any changes during the reporting period 3'
@@ -4150,7 +4260,13 @@ export const guardianShipFormTemplate: PdfTemplate = {
       section: "Guardian's Report",
       width: 12,
       conditional: { fieldId: 'carePlanChangeRecommended', equals: 'yes' },
-      pdfFieldNames: ['or    the guardian recommends these changes'],
+      pdfFieldNames: [
+        'or    the guardian recommends these changes',
+        '1_3',
+        '2_3',
+        '3_2',
+        '4'
+      ],
       pdf: { page: 6, x: 140, y: 150, fontSize: 9, maxWidth: 420 }
     },
     {
@@ -4216,7 +4332,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
     },
     {
       id: 'planDeviated',
-      label: 'Have you deviated from the approved plan?',
+      label: 'As guardian, have you deviated from the approved plan?',
       type: 'radio',
       section: "Guardian's Report",
       width: 12,
@@ -4231,7 +4347,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
       section: "Guardian's Report",
       width: 12,
       conditional: { fieldId: 'planDeviated', equals: 'yes' },
-      pdfFieldNames: ['why 1', 'why 2'],
+      pdfFieldNames: ['why 1', 'why 2', '1_5', '2_5', '3_4'],
       pdf: { page: 7, x: 140, y: 450, fontSize: 9, maxWidth: 420 }
     },
     {
@@ -4254,7 +4370,7 @@ export const guardianShipFormTemplate: PdfTemplate = {
     },
     {
       id: 'scopeChangeRecommended',
-      label: 'Do you recommend changes to the scope of authority?',
+      label: 'Do you recommend changes to the scope of the guardian’s authority?',
       type: 'radio',
       section: "Guardian's Report",
       width: 12,

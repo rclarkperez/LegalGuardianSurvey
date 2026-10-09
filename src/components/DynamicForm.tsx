@@ -9,6 +9,8 @@ import React, { useMemo } from 'react'
 import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form'
 import type { PdfTemplate, TemplateField, TemplateFormData, FieldOption } from '../types/template.types'
 import { getDisplayLabel } from '../utils/fieldLabelHelpers'
+import { sanitizeNumericText } from '../utils/numericInput'
+import { SignaturePad } from './SignaturePad'
 
 const YES_NO_OPTIONS: FieldOption[] = [
   { label: 'Yes', value: 'yes' },
@@ -112,6 +114,26 @@ export const BALANCE_SHEET_OPTIONAL_GROUPS: OptionalFieldGroupConfig[] = [
     dependsOnTriggerFieldId: 'showLiabilityItem3'
   }
 ]
+
+function registerFormattedInput(
+  register: UseFormRegister<TemplateFormData>,
+  field: TemplateField
+) {
+  const registration = register(field.id, field.validation)
+  if (!field.inputFormat) return registration
+
+  return {
+    ...registration,
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+      event.currentTarget.value = sanitizeNumericText(
+        event.currentTarget.value,
+        field.inputFormat!,
+        field.validation?.maxLength
+      )
+      void registration.onChange(event)
+    }
+  }
+}
 
 const BALANCE_SHEET_SUPPRESSED_TRIGGER_FIELDS = new Set<string>()
 
@@ -429,7 +451,7 @@ interface DynamicFormProps {
   /** React Hook Form watch function for conditional fields */
   watch: UseFormWatch<TemplateFormData>
   /** React Hook Form setValue function for progressive reveal controls */
-  setValue?: UseFormSetValue<TemplateFormData>
+  setValue: UseFormSetValue<TemplateFormData>
   /** Optional list of sections to show for the current page */
   visibleSections?: string[]
   /** Optional list of field ids to show for the current page */
@@ -868,8 +890,21 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     const label = getDisplayLabel(field.label, individualName, fieldId)
     const placeholder = field.placeholder ? getDisplayLabel(field.placeholder, individualName, fieldId) : undefined
     const error = errors[fieldId]
+    const fieldRegistration = registerFormattedInput(register, field)
 
     switch (field.type) {
+      case 'signature':
+        return (
+          <SignaturePad
+            key={fieldId}
+            field={field}
+            value={watch(fieldId)}
+            error={error}
+            register={register}
+            setValue={setValue}
+          />
+        )
+
       case 'textarea':
         if (!isMultilineDescriptionField(field)) {
           return (
@@ -882,7 +917,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 type="text"
                 id={fieldId}
                 placeholder={placeholder}
-                {...register(fieldId, field.validation)}
+                inputMode={field.inputFormat === 'digits' ? 'numeric' : field.inputFormat === 'postal-code' ? 'numeric' : field.inputFormat === 'phone' ? 'tel' : undefined}
+                maxLength={field.validation?.maxLength}
+                {...fieldRegistration}
               />
               {error && <span className="field-error-message">{String(error.message)}</span>}
             </div>
@@ -990,8 +1027,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               type="number"
               id={fieldId}
               placeholder={placeholder}
-              step="0.01"
-              {...register(fieldId, field.validation)}
+              min={field.validation?.min}
+              max={field.validation?.max}
+              step={fieldId === 'individualAge' || fieldId === 'guardianAge' ? '1' : '0.01'}
+              inputMode="decimal"
+              {...fieldRegistration}
             />
             {error && <span className="field-error-message">{String(error.message)}</span>}
           </div>
@@ -1005,7 +1045,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               type="email"
               id={fieldId}
               placeholder={placeholder}
-              {...register(fieldId, field.validation)}
+              {...fieldRegistration}
             />
             {error && <span className="field-error-message">{String(error.message)}</span>}
           </div>
@@ -1019,7 +1059,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               type="tel"
               id={fieldId}
               placeholder={placeholder}
-              {...register(fieldId, field.validation)}
+              inputMode={field.inputFormat ? 'tel' : undefined}
+              maxLength={field.validation?.maxLength}
+              {...fieldRegistration}
             />
             {error && <span className="field-error-message">{String(error.message)}</span>}
           </div>
@@ -1050,7 +1092,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               type="text"
               id={fieldId}
               placeholder={placeholder}
-              {...register(fieldId, field.validation)}
+              inputMode={field.inputFormat === 'digits' || field.inputFormat === 'postal-code' ? 'numeric' : undefined}
+              maxLength={field.validation?.maxLength}
+              {...fieldRegistration}
             />
             {error && <span className="field-error-message">{String(error.message)}</span>}
           </div>
@@ -1151,6 +1195,7 @@ export const CompactDynamicForm: React.FC<DynamicFormProps> = ({
   register,
   errors,
   watch,
+  setValue,
   renderField
 }) => {
   // Group fields by section
@@ -1209,8 +1254,21 @@ export const CompactDynamicForm: React.FC<DynamicFormProps> = ({
     const label = getDisplayLabel(field.label, individualName, fieldId)
     const placeholder = field.placeholder ? getDisplayLabel(field.placeholder, individualName, fieldId) : undefined
     const error = errors[fieldId]
+    const fieldRegistration = registerFormattedInput(register, field)
 
     switch (field.type) {
+      case 'signature':
+        return (
+          <SignaturePad
+            key={fieldId}
+            field={field}
+            value={watch(fieldId)}
+            error={error}
+            register={register}
+            setValue={setValue}
+          />
+        )
+
       case 'checkbox':
         return (
           <label key={fieldId} className="compact-checkbox">
@@ -1270,8 +1328,12 @@ export const CompactDynamicForm: React.FC<DynamicFormProps> = ({
               type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : field.type === 'tel' ? 'tel' : 'text'}
               id={fieldId}
               placeholder={placeholder}
-              step={field.type === 'number' ? '0.01' : undefined}
-              {...register(fieldId, field.validation)}
+              min={field.type === 'number' ? field.validation?.min : undefined}
+              max={field.type === 'number' ? field.validation?.max : undefined}
+              step={field.type === 'number' ? (field.id === 'individualAge' || field.id === 'guardianAge' ? '1' : '0.01') : undefined}
+              inputMode={field.inputFormat === 'digits' || field.inputFormat === 'postal-code' ? 'numeric' : field.inputFormat === 'phone' ? 'tel' : undefined}
+              maxLength={field.validation?.maxLength}
+              {...fieldRegistration}
             />
             {error && <span className="error-message">{String(error.message)}</span>}
           </div>
