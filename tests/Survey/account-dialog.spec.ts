@@ -46,10 +46,46 @@ test('account dialog supports account creation and password reset paths', async 
   await expect(dialog.getByRole('button', { name: 'Send reset link' })).toBeVisible()
 })
 
-test('save progress button reports when account saving is unavailable', async ({ page }) => {
+test('save progress button explains account saving for signed-out users', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByText(/save your progress.*resume at your next unanswered question/i)).toBeVisible()
   await page.getByRole('button', { name: /Start my report/i }).click()
   await page.getByRole('button', { name: 'Save progress' }).click()
 
-  await expect(page.getByRole('status')).toHaveText('Sign in to save progress to your account.')
+  const prompt = page.getByRole('dialog', { name: 'Sign in to save progress' })
+  await expect(prompt).toBeVisible()
+  await expect(prompt).toContainText('must sign in before progress can be saved')
+  await prompt.getByRole('button', { name: 'No, continue without saving' }).click()
+  await expect(prompt).toBeHidden()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Save progress' }).click()
+  await page.getByRole('dialog', { name: 'Sign in to save progress' })
+    .getByRole('button', { name: 'Yes, sign me in' }).click()
+  await expect(page.getByRole('dialog', { name: 'Sign in to GuardianForm' })).toBeVisible()
+})
+
+test('signed-in users can save progress without the sign-in prompt', async ({ page }) => {
+  await page.route('**/src/App.tsx', async route => {
+    await route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        import React from '/node_modules/.vite/deps/react.js';
+        import { TemplateForm } from '/src/components/TemplateForm.tsx';
+        import { guardianShipFormTemplate } from '/src/templates/guardianShipForm.template.ts';
+        export default function App() {
+          const save = async () => {};
+          return React.createElement(TemplateForm, {
+            template: guardianShipFormTemplate,
+            onDraftSave: save
+          });
+        }
+      `,
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Save progress' }).click()
+  await expect(page.getByRole('status')).toHaveText('Progress saved to your account.')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })

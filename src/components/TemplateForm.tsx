@@ -32,6 +32,8 @@ interface TemplateFormProps {
   onClear?: () => void
   /** Optional cloud autosave for signed-in users */
   onDraftSave?: (formData: TemplateFormData, currentStepId?: string) => Promise<void>
+  /** Open the account dialog when a signed-out user wants cloud saving */
+  onRequestLogin?: () => void
   /** Leave the form, optionally saving the current answers first */
   onHome?: (formData: TemplateFormData, save: boolean, currentStepId?: string) => Promise<void> | void
   /** Save a completed report to the signed-in user's account */
@@ -719,6 +721,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   homeRequest = 0,
   onClear,
   onDraftSave,
+  onRequestLogin,
   onHome,
   onReportSave,
   initialData,
@@ -729,6 +732,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [draftSaveStatus, setDraftSaveStatus] = useState('')
+  const [saveLoginPromptOpen, setSaveLoginPromptOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(() => {
     if (!initialData || initiallyReviewing) return 0
     const values = { ...getDefaultValues(template), ...initialData }
@@ -1367,7 +1371,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
           className="save-progress-button"
           onClick={() => {
             if (!onDraftSave) {
-              setDraftSaveStatus('Sign in to save progress to your account.')
+              setSaveLoginPromptOpen(true)
               return
             }
             setDraftSaveStatus('Saving progress…')
@@ -1578,6 +1582,47 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
         </div>
 
       </div>
+
+      {saveLoginPromptOpen && (
+        <div
+          className="confirmation-modal-backdrop"
+          role="presentation"
+          onClick={() => setSaveLoginPromptOpen(false)}
+        >
+          <div
+            className="confirmation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-login-prompt-title"
+            aria-describedby="save-login-prompt-message"
+            onClick={event => event.stopPropagation()}
+          >
+            <h3 id="save-login-prompt-title">Sign in to save progress</h3>
+            <p id="save-login-prompt-message">
+              You must sign in before progress can be saved. Would you like to sign in now?
+            </p>
+            <div className="confirmation-modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setSaveLoginPromptOpen(false)}
+              >
+                No, continue without saving
+              </button>
+              <button
+                type="button"
+                className="submit-button"
+                onClick={() => {
+                  setSaveLoginPromptOpen(false)
+                  onRequestLogin?.()
+                }}
+              >
+                Yes, sign me in
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmationModal && (
         <div
