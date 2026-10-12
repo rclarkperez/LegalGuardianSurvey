@@ -15,11 +15,11 @@ test.describe('Core survey flow', () => {
       await gotoForm(page)
 
       await expect(page.getByRole('heading', { name: /Guardian\/Conservator's Report/i })).toBeVisible()
-      await expect(currentCardTitle(page)).toContainText(/Section A - General Information/i)
+      await expect(currentCardTitle(page)).toContainText(/Court and Case/i)
 
       await fillTextField(page, /county/i, 'King')
       await goToNextCard(page)
-      await expect(currentCardTitle(page)).toContainText(/Section A - General Information/i)
+      await expect(currentCardTitle(page)).toContainText(/Court and Case/i)
 
       await goToPreviousCard(page)
       await expect(page.getByLabel(/county/i)).toHaveValue('King')
@@ -38,10 +38,10 @@ test.describe('Core survey flow', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Clear Form' }).click()
 
       await expect(page.getByRole('dialog')).toBeHidden()
-      await expect(page.getByRole('button', { name: /Get started/i })).toBeVisible()
+      await expect(page.getByRole('button', { name: /Start my report/i })).toBeVisible()
 
-      await page.getByRole('button', { name: /Get started/i }).click()
-      await expect(currentCardTitle(page)).toContainText(/Section A - General Information/i)
+      await page.getByRole('button', { name: /Start my report/i }).click()
+      await expect(currentCardTitle(page)).toContainText(/Court and Case/i)
       await expect(page.getByRole('dialog')).toBeHidden()
       await expect(page.getByLabel(/county/i)).toHaveValue('')
     })
@@ -115,7 +115,7 @@ test.describe('Core survey flow', () => {
 
       const generalInformationReviewCard = page
         .locator('.review-section-card')
-        .filter({ hasText: /Section A - General Information/i })
+        .filter({ hasText: /General Information/i })
 
       await expect(page.getByRole('heading', { name: 'Review Your Answers' })).toBeVisible()
       await expect(generalInformationReviewCard).toContainText('King')
@@ -124,7 +124,7 @@ test.describe('Core survey flow', () => {
 
       await generalInformationReviewCard.getByRole('button', { name: 'Edit' }).click()
 
-      await expect(currentCardTitle(page)).toContainText(/Section A - General Information/i)
+      await expect(currentCardTitle(page)).toContainText(/Court and Case/i)
       await expect(page.getByLabel(/county/i)).toHaveValue('King')
       await expect(page.getByLabel(/docket number/i)).toHaveValue('24-4-00001-1')
 

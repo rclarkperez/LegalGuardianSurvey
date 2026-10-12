@@ -26,8 +26,22 @@ interface TemplateFormProps {
   submitButtonText?: string
   /** Increment to request the clear-form confirmation from outside the form */
   clearRequest?: number
+  /** Increment to request the leave-form confirmation from outside the form */
+  homeRequest?: number
   /** Callback after the form has been cleared */
   onClear?: () => void
+  /** Optional cloud autosave for signed-in users */
+  onDraftSave?: (formData: TemplateFormData, currentStepId?: string) => Promise<void>
+  /** Leave the form, optionally saving the current answers first */
+  onHome?: (formData: TemplateFormData, save: boolean, currentStepId?: string) => Promise<void> | void
+  /** Save a completed report to the signed-in user's account */
+  onReportSave?: (formData: TemplateFormData, pdfBlob: Blob) => Promise<string | void>
+  /** Existing draft or saved report to restore */
+  initialData?: TemplateFormData
+  /** Step ID to restore when reopening an in-progress draft */
+  initialStepId?: string
+  /** Open restored completed reports on the review screen */
+  initiallyReviewing?: boolean
 }
 
 type ConfirmationModalState =
@@ -43,6 +57,11 @@ type ConfirmationModalState =
     title: string
     message: string
     confirmLabel: string
+  }
+  | {
+    type: 'home'
+    title: string
+    message: string
   }
   | null
 
@@ -480,19 +499,16 @@ function buildFormSteps(
     return chunks.map((chunk, index) => {
       const chunkTitle = getSectionChunkTitle(sectionName, chunk)
       const stableStepId = `${sectionName}:${chunk.map(field => field.id).join('|')}`
-      const sectionProgressLabel = getSectionProgressLabel(display.title)
       const fieldStep: FormStep = {
         id: stableStepId,
         sectionName,
         sectionTitle: display.title,
-        progressLabel:
-          chunks.length > 1
-            ? `${sectionProgressLabel} (${index + 1} of ${chunks.length})`
-            : sectionProgressLabel,
-        title:
-          `${display.title}${chunkTitle ? `: ${chunkTitle}` : ''}`,
+        progressLabel: `Step ${index + 1} of ${chunks.length}`,
+        title: chunkTitle ?? getSectionProgressLabel(display.title),
         description:
-          chunkTitle && chunkTitle !== display.title
+          chunkTitle === 'Court and Case'
+            ? 'You can find these details on your court papers or previous filings.'
+            : chunkTitle && chunkTitle !== display.title
             ? `Complete the ${chunkTitle.toLowerCase()} questions.`
             : display.description ?? 'Complete the next few questions in this section.',
         fieldIds: chunk.map(field => field.id),
@@ -513,6 +529,44 @@ function buildFormSteps(
 
 function getStepIdsSignature(formSteps: FormStep[]): string {
   return formSteps.map(formStep => formStep.id).join('>')
+}
+
+function hasResumeValue(value: unknown): boolean {
+  if (typeof value === 'string') return value.trim().length > 0
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value === 'boolean') return value
+  if (Array.isArray(value)) return value.length > 0
+  return value != null
+}
+
+function getResumeStepIndex(
+  formSteps: FormStep[],
+  templateFields: TemplateField[],
+  formValues: TemplateFormData,
+  savedStepId?: string
+): number {
+  const fieldsById = new Map(templateFields.map(field => [field.id, field]))
+  const calculatedFieldIds = new Set(DERIVED_FIELD_RULES.map(rule => rule.fieldId))
+  const firstIncompleteStep = formSteps.findIndex(step => {
+    const questions = step.fieldIds
+      .map(fieldId => fieldsById.get(fieldId))
+      .filter((field): field is TemplateField => Boolean(
+        field && field.includeInForm !== false &&
+        isFieldVisibleInStep(field, formValues) && !calculatedFieldIds.has(field.id)
+      ))
+
+    // Required is a submission-validation rule, not an indication that a
+    // question has been answered. Most survey questions are optional.
+    return questions.some(field => {
+      // An unchecked optional checkbox is a valid answer, including its default.
+      if (field.type === 'checkbox' && !field.validation?.required) return false
+      return !hasResumeValue(formValues[field.id])
+    })
+  })
+
+  if (firstIncompleteStep >= 0) return firstIncompleteStep
+  const savedIndex = formSteps.findIndex(step => step.id === savedStepId)
+  return savedIndex >= 0 ? savedIndex : Math.max(formSteps.length - 1, 0)
 }
 
 function findEquivalentStepIndex(
@@ -662,13 +716,27 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   showSuccessMessage = true,
   submitButtonText = 'Submit',
   clearRequest = 0,
-  onClear
+  homeRequest = 0,
+  onClear,
+  onDraftSave,
+  onHome,
+  onReportSave,
+  initialData,
+  initialStepId,
+  initiallyReviewing = false
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [currentStep, setCurrentStep] = useState(0)
-  const [isReviewMode, setIsReviewMode] = useState(false)
+  const [draftSaveStatus, setDraftSaveStatus] = useState('')
+  const [currentStep, setCurrentStep] = useState(() => {
+    if (!initialData || initiallyReviewing) return 0
+    const values = { ...getDefaultValues(template), ...initialData }
+    const width = typeof window === 'undefined' ? 1440 : window.innerWidth
+    const steps = buildFormSteps(template.fields, values, getMaxUnitsPerCard(width))
+    return getResumeStepIndex(steps, template.fields, values, initialStepId)
+  })
+  const [isReviewMode, setIsReviewMode] = useState(initiallyReviewing)
   const [hasReviewReturnPath, setHasReviewReturnPath] = useState(false)
   const [transitionDirection, setTransitionDirection] = useState<StepNavigationDirection>('forward')
   const [confirmationModal, setConfirmationModal] = useState<ConfirmationModalState>(null)
@@ -685,18 +753,68 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
     setError,
     reset
   } = useForm<TemplateFormData>({
-    defaultValues: getDefaultValues(template)
+    defaultValues: { ...getDefaultValues(template), ...initialData }
   })
 
   const formValues = watch()
   const maxUnitsPerCard = useMemo(() => getMaxUnitsPerCard(viewportWidth), [viewportWidth])
   const currentStepSnapshotRef = useRef<StepSnapshot | null>(null)
   const currentStepIndexRef = useRef(0)
+  const draftStepIdRef = useRef<string | undefined>(undefined)
   const previousRenderedStepRef = useRef<{
     index: number
     snapshot: StepSnapshot
   } | null>(null)
   const pendingStepNavigationRef = useRef<PendingStepNavigation | null>(null)
+
+  useEffect(() => {
+    if (!onDraftSave) {
+      return
+    }
+
+    let saveTimer: number | undefined
+    let isDisposed = false
+    const scheduleSave = (values: TemplateFormData) => {
+      const hasUserInput = Object.values(values).some(value =>
+        typeof value === 'string' ? value.trim().length > 0 :
+          typeof value === 'number' ? Number.isFinite(value) :
+            value === true
+      )
+
+      if (!hasUserInput) return
+
+      window.clearTimeout(saveTimer)
+      setDraftSaveStatus('Saving progress…')
+      saveTimer = window.setTimeout(() => {
+        void onDraftSave(values, draftStepIdRef.current)
+          .then(() => {
+            if (!isDisposed) setDraftSaveStatus('Progress saved to your account.')
+          })
+          .catch(error => {
+            if (!isDisposed) {
+              setDraftSaveStatus(
+                error instanceof Error
+                  ? `Progress could not be saved: ${error.message}`
+                  : 'Progress could not be saved. Please try again.'
+              )
+            }
+          })
+      }, 900)
+    }
+
+    const subscription = watch(values => {
+      scheduleSave(values as TemplateFormData)
+    })
+    if (!initiallyReviewing) {
+      scheduleSave(watch())
+    }
+
+    return () => {
+      isDisposed = true
+      window.clearTimeout(saveTimer)
+      subscription.unsubscribe()
+    }
+  }, [initiallyReviewing, onDraftSave, watch])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -725,6 +843,15 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
       confirmLabel: 'Clear Form'
     })
   }, [clearRequest, isSubmitting])
+
+  useEffect(() => {
+    if (homeRequest === 0 || isSubmitting) return
+    setConfirmationModal({
+      type: 'home',
+      title: 'Leave this report?',
+      message: 'Would you like to save your progress before returning home?'
+    })
+  }, [homeRequest, isSubmitting])
 
   useEffect(() => {
     DERIVED_FIELD_RULES.forEach(({ fieldId, calculate }) => {
@@ -818,8 +945,32 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   const displayedProgressPercent = isReviewMode ? 100 : roundedProgressPercent
   const displayedProgressWidth = isReviewMode ? 100 : progressPercent
 
+  // Keep the step ref current during render so an explicit save cannot use
+  // the previous step, and persist navigation even when no field value changed.
+  draftStepIdRef.current = currentStepConfig?.id
+
+  useEffect(() => {
+    if (!onDraftSave || initiallyReviewing || !currentStepConfig) {
+      return
+    }
+
+    void onDraftSave(formValues, currentStepConfig.id).catch(error => {
+      setDraftSaveStatus(
+        error instanceof Error
+          ? `Progress could not be saved: ${error.message}`
+          : 'Progress could not be saved. Please try again.'
+      )
+    })
+  }, [currentStepConfig?.id])
+
   useEffect(() => {
     if (formSteps.length === 0) {
+      return
+    }
+
+    // Resume is resolved before the first render; only reconcile later
+    // changes to the available cards against a previously rendered card.
+    if (currentStepSnapshotRef.current === null) {
       return
     }
 
@@ -984,13 +1135,18 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
         template.pdfPath
       )
 
+      const reportSaveNotice = await onReportSave?.(data, pdfBlob)
+
       // Trigger download
       const fileName = `${template.id}_${new Date().toISOString().split('T')[0]}.pdf`
       downloadBlob(pdfBlob, fileName)
 
       // Show success message
       if (showSuccessMessage) {
-        setSuccessMessage('✅ PDF generated and downloaded successfully!')
+        const successMessage = onReportSave
+          ? 'PDF downloaded and saved to your account.'
+          : '✅ PDF generated and downloaded successfully!'
+        setSuccessMessage(reportSaveNotice ? `${successMessage} ${reportSaveNotice}` : successMessage)
       }
 
       // Call success callback
@@ -1127,7 +1283,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
     setCurrentStep(0)
     setIsReviewMode(false)
     setHasReviewReturnPath(false)
-    reset()
+    reset(getDefaultValues(template))
   }
 
   const closeConfirmationModal = () => {
@@ -1149,6 +1305,20 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
       setErrorMessage('')
       setConfirmationModal(null)
       onClear?.()
+      return
+    }
+
+    if (confirmationModal.type === 'home') {
+      setConfirmationModal(null)
+      try {
+        await onHome?.(formValues, true, draftStepIdRef.current)
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? `Progress could not be saved, so you remain on this form: ${error.message}`
+            : 'Progress could not be saved, so you remain on this form.'
+        )
+      }
       return
     }
 
@@ -1191,15 +1361,24 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
       <div className="template-form-header">
         <div className="template-form-header-main">
           <h1>{template.name}</h1>
-          {template.description && <p>{template.description}</p>}
         </div>
         <button
           type="button"
-          onClick={handleClearForm}
-          disabled={isSubmitting}
-          className="clear-form-button"
+          className="save-progress-button"
+          onClick={() => {
+            if (!onDraftSave) {
+              setDraftSaveStatus('Sign in to save progress to your account.')
+              return
+            }
+            setDraftSaveStatus('Saving progress…')
+            void onDraftSave(formValues, draftStepIdRef.current)
+              .then(() => setDraftSaveStatus('Progress saved to your account.'))
+              .catch(error => setDraftSaveStatus(
+                error instanceof Error ? `Progress could not be saved: ${error.message}` : 'Progress could not be saved.'
+              ))
+          }}
         >
-          Clear Form
+          Save progress
         </button>
       </div>
 
@@ -1215,13 +1394,21 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
         </div>
       )}
 
+      {draftSaveStatus && (
+        <p
+          className={`draft-save-status ${draftSaveStatus.includes('could not be saved') ? 'is-error' : ''}`}
+          role="status"
+        >
+          {draftSaveStatus}
+        </p>
+      )}
+
       {currentStepConfig && (
         <div className="form-progress" aria-label="Form progress">
           <div className="form-progress-meta">
             <span className="form-progress-label">
-              {isReviewMode ? 'Review Your Answers' : currentStepConfig.progressLabel}
+              {isReviewMode ? 'Final review' : currentStepConfig.progressLabel}
             </span>
-            <span className="form-progress-completion">{displayedProgressPercent}% complete</span>
           </div>
           <div
             className="form-progress-track"
@@ -1229,7 +1416,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={displayedProgressPercent}
-            aria-valuetext={`${displayedProgressPercent}% complete`}
+            aria-valuetext={isReviewMode ? 'Final review' : currentStepConfig.progressLabel}
           >
             <div className="form-progress-fill" style={{ width: `${displayedProgressWidth}%` }} />
           </div>
@@ -1243,7 +1430,6 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
           className={`form-card-shell ${transitionDirection === 'forward' ? 'is-forward' : 'is-backward'}`}
         >
           <div className="form-page-header">
-            <span className="form-page-kicker">{currentStepConfig.sectionTitle}</span>
             <h2>{currentStepConfig.title}</h2>
             <p>{currentStepConfig.description}</p>
           </div>
@@ -1259,6 +1445,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
               visibleFieldIds={currentStepConfig.fieldIds}
               visibleOptionalGroupIds={currentStepConfig.visibleOptionalGroupIds}
               controlOnly={currentStepConfig.controlOnly}
+              suppressSubsectionTitle={currentStepConfig.title}
             />
           </div>
         </div>
@@ -1324,6 +1511,14 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
 
       <div className="form-bottom-bar">
         <div className="form-actions">
+          <button
+            type="button"
+            onClick={handleClearForm}
+            disabled={isSubmitting}
+            className="clear-form-button"
+          >
+            Clear Form
+          </button>
           <div className="form-action-navigation">
             {isReviewMode ? (
               <>
@@ -1358,14 +1553,16 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={goToPreviousStep}
-                  disabled={isSubmitting || isFirstStep}
-                  className="secondary-button"
-                >
-                  Previous
-                </button>
+                {!isFirstStep && (
+                  <button
+                    type="button"
+                    onClick={goToPreviousStep}
+                    disabled={isSubmitting}
+                    className="secondary-button"
+                  >
+                    Previous
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -1380,10 +1577,6 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
           </div>
         </div>
 
-        <div className="form-footer">
-          <p>Template: {template.name} v{template.version}</p>
-          <p>Fields: {template.fields.length}</p>
-        </div>
       </div>
 
       {confirmationModal && (
@@ -1407,10 +1600,17 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
               <button
                 type="button"
                 className="secondary-button"
-                onClick={closeConfirmationModal}
+                onClick={() => {
+                  if (confirmationModal.type === 'home') {
+                    setConfirmationModal(null)
+                    void onHome?.(formValues, false, draftStepIdRef.current)
+                  } else {
+                    closeConfirmationModal()
+                  }
+                }}
                 disabled={isSubmitting}
               >
-                Cancel
+                {confirmationModal.type === 'home' ? "Don't save" : 'Cancel'}
               </button>
 
               <button
@@ -1421,7 +1621,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
               >
                 {isSubmitting && confirmationModal.type === 'submit'
                   ? 'Generating...'
-                  : confirmationModal.confirmLabel}
+                  : confirmationModal.type === 'home' ? 'Save and go home' : confirmationModal.confirmLabel}
               </button>
             </div>
           </div>

@@ -20,7 +20,7 @@ test.describe('GuardianForm tablet responsive coverage', () => {
     await gotoForm(page)
 
     await expect(currentCard(page)).toBeVisible()
-    await expectCurrentCardTitle(page, /Section A - General Information/i)
+    await expectCurrentCardTitle(page, /Court and Case/i)
     await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Clear Form' })).toBeVisible()
   })

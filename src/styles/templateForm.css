@@ -7,19 +7,19 @@
 
 /* ===== Template Form Base Styles ===== */
 .template-form {
-  --tt-blue: #005ea2;
-  --tt-blue-dark: #1a4480;
-  --tt-blue-soft: #eff6fb;
+  --tt-blue: #176b64;
+  --tt-blue-dark: #12574f;
+  --tt-blue-soft: #e8f3ef;
   --tt-ink: #1b1b1b;
   --tt-muted: #565c65;
   --tt-border: #d9d9d9;
   --tt-border-strong: #b8b8b8;
-  --tt-surface: #ffffff;
-  --tt-surface-alt: #f0f0f0;
+  --tt-surface: #f7faf7;
+  --tt-surface-alt: #e5eee8;
   --tt-success: #2e8540;
   --tt-warning: #ffbe2e;
   --tt-error: #d54309;
-  --tt-shadow: 0 12px 28px rgba(27, 27, 27, 0.1);
+  --tt-shadow: 0 14px 32px rgba(29, 51, 40, 0.15);
   display: flex;
   flex-direction: column;
   max-width: 1120px;
@@ -93,6 +93,28 @@
   min-width: 0;
 }
 
+.save-progress-button {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--tt-border-strong);
+  border-radius: 8px;
+  background: var(--tt-surface);
+  color: var(--tt-ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.save-progress-button:hover {
+  border-color: var(--tt-blue);
+  background: var(--tt-blue-soft);
+  box-shadow: none;
+}
+
+.save-progress-close {
+  width: 100%;
+}
+
 .template-form-header h1 {
   font-size: 1.45rem;
   margin-bottom: 0.12rem;
@@ -155,7 +177,7 @@
   padding: 0.9rem 0.95rem;
   border: 1px solid var(--tt-border);
   border-radius: 16px;
-  background: #fff;
+  background: #eaf1ec;
   animation-duration: 0.28s;
   animation-timing-function: ease;
   animation-fill-mode: both;
@@ -426,7 +448,7 @@
 .form-group select:focus {
   outline: none;
   border-color: var(--tt-blue);
-  box-shadow: 0 0 0 3px rgba(0, 94, 162, 0.2);
+  box-shadow: 0 0 0 3px rgba(23, 107, 100, 0.2);
   background: #fff;
 }
 
@@ -602,7 +624,7 @@
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   margin-top: 0;
@@ -709,7 +731,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: flex-start;
+  align-self: center;
+  margin-right: auto;
   min-height: auto;
   padding: 0.1rem 0;
   border: none;
@@ -903,7 +926,7 @@
   }
 
   .clear-form-button {
-    align-self: flex-end;
+    align-self: flex-start;
     font-size: 0.8rem;
   }
 
@@ -955,12 +978,13 @@
   }
 
   .form-actions {
-    flex-direction: column-reverse;
+    flex-direction: column;
     align-items: stretch;
   }
 
   .form-action-navigation {
     width: 100%;
+    order: 0;
   }
 
   .form-action-navigation {
@@ -975,6 +999,7 @@
 
   .clear-form-button {
     align-self: flex-start;
+    order: 1;
   }
 }
 
@@ -1027,7 +1052,9 @@
 
 /* ===== Form Footer ===== */
 .form-footer {
-  display: none;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.35rem;
 }
 
 .form-footer p {

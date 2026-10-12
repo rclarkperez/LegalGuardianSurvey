@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
   answerRadioQuestion,
-  currentSubheading,
   expectCurrentCardToContainText,
   expectCurrentCardNotToContainText,
   expectCurrentCardTitle,
@@ -25,7 +24,7 @@ test.describe('Section C - Conservator Balance Sheet', () => {
       await goToNextCard(page)
 
       await expectCurrentCardNotToContainText(page, /Financial Institutions Containing Unblocked Liquid Assets/i)
-      await expect(currentSubheading(page, 'Blocked Liquid Asset Institutions')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Blocked Liquid Asset Institutions')
     })
 
     test('shows the first financial institution card when the user answers yes', async ({ page }) => {
@@ -35,7 +34,7 @@ test.describe('Section C - Conservator Balance Sheet', () => {
       await answerRadioQuestion(page, /Does the protected person have any Unblocked Liquid Assets/i, 'Yes')
       await goToNextCard(page)
 
-      await expect(currentSubheading(page, 'Financial Institutions Containing Unblocked Liquid Assets (e.g. Investment Accounts, Stocks, Bonds, Securities, IRA, Cash)')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Financial Institutions Containing Unblocked Liquid Assets (e.g. Investment Accounts, Stocks, Bonds, Securities, IRA, Cash)')
       await expect(fieldInCurrentCard(page, /interest checking account/i)).toBeVisible()
     })
 
@@ -51,7 +50,7 @@ test.describe('Section C - Conservator Balance Sheet', () => {
       await goToNextCard(page)
 
       await expectCurrentCardNotToContainText(page, /Second Financial Institution Containing Unblocked Liquid Assets/i)
-      await expect(currentSubheading(page, 'Blocked Liquid Asset Institutions')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Blocked Liquid Asset Institutions')
     })
 
     test('clears the first unblocked institution values after toggling yes back to no', async ({ page }) => {
@@ -92,14 +91,14 @@ test.describe('Section C - Conservator Balance Sheet', () => {
 
       await answerRadioQuestion(page, /Do you have a blocked liquid-asset institution to add/i, 'Yes')
       await goToNextCard(page)
-      await expect(currentSubheading(page, 'Blocked Liquid Asset Institution 1')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Blocked Liquid Asset Institution 1')
 
       await goToNextCard(page)
       await expectCurrentCardToContainText(page, /Do you have another blocked account at this same institution\?/i)
 
       await answerRadioQuestion(page, /Do you have another blocked account at this same institution\?/i, 'Yes')
       await goToNextCard(page)
-      await expect(currentSubheading(page, 'Second Blocked Account at This Institution')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Second Blocked Account at This Institution')
     })
 
     test('skips blocked institution 2 when the second blocked institution answer is no', async ({ page }) => {
@@ -127,7 +126,7 @@ test.describe('Section C - Conservator Balance Sheet', () => {
       await answerRadioQuestion(page, /mortgages, liens, notes payable, or other liabilities/i, 'Yes')
       await goToNextCard(page)
 
-      await expect(currentSubheading(page, 'Mortgages, Liens, Notes Payable, and Other Liabilities')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Mortgages, Liens, Notes Payable, and Other Liabilities')
       await expect(fieldInCurrentCard(page, /Liability 1 description/i)).toBeVisible()
     })
 
@@ -173,7 +172,7 @@ test.describe('Section C - Conservator Balance Sheet', () => {
 
       await answerRadioQuestion(page, /Do you have another personal or other property item to add\?/i, 'Yes')
       await goToNextCard(page)
-      await expect(currentSubheading(page, 'Second Personal or Other Property Item')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Second Personal or Other Property Item')
       await expectCurrentCardNotToContainText(page, /Remove this personal or other property item 2/i)
 
       await fillTextField(page, /Describe personal or other property item 2/i, 'Brokerage Account')
@@ -182,7 +181,7 @@ test.describe('Section C - Conservator Balance Sheet', () => {
       await expectCurrentCardNotToContainText(page, /Do you have another personal or other property item to add\?/i)
 
       await goToPreviousCardUntil(page, /Second Personal or Other Property Item/i)
-      await expect(currentSubheading(page, 'Second Personal or Other Property Item')).toBeVisible()
+      await expectCurrentCardTitle(page, 'Second Personal or Other Property Item')
       await expect(fieldInCurrentCard(page, /Describe personal or other property item 2/i)).toHaveValue('Brokerage Account')
     })
   })

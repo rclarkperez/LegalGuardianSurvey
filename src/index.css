@@ -1,7 +1,6 @@
 :root {
-  color: #16324f;
-  background:
-    radial-gradient(circle at top, #eaf4ff 0%, #dcecff 34%, #c7dcfb 100%);
+  color: #263746;
+  background: #e2ebe5;
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -33,15 +32,15 @@ button {
   font-size: 1em;
   font-weight: 600;
   font-family: inherit;
-  background-color: #0f6cbd;
+  background-color: #176b64;
   color: #fff;
   cursor: pointer;
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
 }
 
 button:hover {
-  border-color: #0f6cbd;
-  box-shadow: 0 10px 24px rgba(15, 108, 189, 0.2);
+  border-color: #12574f;
+  box-shadow: 0 10px 24px rgba(18, 87, 79, 0.2);
 }
 
 button:focus,
@@ -51,8 +50,7 @@ button:focus-visible {
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #16324f;
-    background:
-      radial-gradient(circle at top, #eaf4ff 0%, #dcecff 34%, #c7dcfb 100%);
+    color: #263746;
+  background: #e2ebe5;
   }
 }

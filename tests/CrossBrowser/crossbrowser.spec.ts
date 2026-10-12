@@ -9,8 +9,8 @@ type DownloadRecorderWindow = Window & {
 async function gotoForm(page: Page) {
   await page.goto('/')
   await expect(page).toHaveTitle(/GuardianForm/i)
-  await expect(page.getByRole('heading', { name: 'GuardianForm' })).toBeVisible()
-  await page.getByRole('button', { name: /Get started/i }).click()
+  await expect(page.getByRole('button', { name: 'GuardianForm home' })).toBeVisible()
+  await page.getByRole('button', { name: /Start my report/i }).click()
 }
 
 function currentCardLabel(page: Page) {
@@ -18,18 +18,12 @@ function currentCardLabel(page: Page) {
 }
 
 function currentCompletionLabel(page: Page) {
-  return page.locator('.form-progress-meta span').nth(1)
+  return page.getByRole('progressbar')
 }
 
 async function getCompletionPercent(page: Page): Promise<number> {
-  const completionText = await currentCompletionLabel(page).textContent()
-  const match = completionText?.match(/(\d+)%\s+complete/i)
-
-  if (!match) {
-    throw new Error(`Unable to parse completion text: ${completionText}`)
-  }
-
-  return Number(match[1])
+  const value = await currentCompletionLabel(page).getAttribute('aria-valuenow')
+  return Number(value)
 }
 
 async function goToLastCard(page: Page) {
@@ -92,9 +86,14 @@ test.describe('GuardianForm cross-browser smoke test', () => {
     await gotoForm(page)
 
     await expect(page.getByRole('heading', { name: /Guardian\/Conservator's Report/i })).toBeVisible()
-    await expect(page.getByText(/Annual report form for guardians and conservators/i)).toBeVisible()
-    await expect(currentCardLabel(page)).toContainText(/General Information/i)
-    await expect(currentCompletionLabel(page)).toContainText(/% complete/i)
+    await expect(page.getByText(/Annual report form for guardians and conservators/i)).toHaveCount(0)
+    await expect(page.getByText(/You can find these details on your court papers or previous filings/i)).toBeVisible()
+    await expect(page.locator('label[for="countyName"]')).toContainText('*')
+    await expect(currentCardLabel(page)).toHaveText('Step 1 of 5')
+    await expect(page.locator('.form-card-shell .form-subsection-title')).toHaveCount(0)
+    await expect(currentCompletionLabel(page)).toHaveAttribute('aria-valuetext', 'Step 1 of 5')
+    await expect(page.locator('.form-progress-label')).toHaveText('Step 1 of 5')
+    await expect(page.getByRole('button', { name: 'Previous' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Clear Form' })).toBeVisible()
 
@@ -142,7 +141,7 @@ test.describe('Confirmation modal behavior', () => {
 
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(textField).toHaveValue('Pierce')
-    await expect(currentCardLabel(page)).toContainText(/General Information/i)
+    await expect(currentCardLabel(page)).toHaveText('Step 1 of 5')
   })
 
   test('clicking the clear modal backdrop closes it without clearing data', async ({ page }) => {
@@ -174,10 +173,10 @@ test.describe('Confirmation modal behavior', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Clear Form' }).click()
 
     await expect(page.getByRole('dialog')).toBeHidden()
-    await expect(page.getByRole('button', { name: /Get started/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Start my report/i })).toBeVisible()
 
-    await page.getByRole('button', { name: /Get started/i }).click()
-    await expect(currentCardLabel(page)).toContainText(/General Information/i)
+    await page.getByRole('button', { name: /Start my report/i }).click()
+    await expect(currentCardLabel(page)).toHaveText('Step 1 of 5')
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(firstVisibleTextField(page)).toHaveValue('')
   })
@@ -191,9 +190,9 @@ test.describe('Confirmation modal behavior', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
 
     await page.getByRole('dialog').getByRole('button', { name: 'Clear Form' }).click()
-    await expect(page.getByRole('button', { name: /Get started/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Start my report/i })).toBeVisible()
 
-    await page.getByRole('button', { name: /Get started/i }).click()
+    await page.getByRole('button', { name: /Start my report/i }).click()
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(firstVisibleTextField(page)).toHaveValue('')
   })
@@ -250,7 +249,7 @@ test.describe('Confirmation modal behavior', () => {
 
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(page.getByText(/PDF generated and downloaded successfully/i)).toBeVisible()
-    await expect(currentCardLabel(page)).toContainText(/General Information/i)
+    await expect(currentCardLabel(page)).toHaveText('Step 1 of 5')
     await expect.poll(() => getRecordedDownloads(page)).toHaveLength(1)
     await expect.poll(async () => (await getRecordedDownloads(page))[0] ?? '').toMatch(/\.pdf$/i)
   })

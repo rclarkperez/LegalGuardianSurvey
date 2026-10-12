@@ -458,6 +458,7 @@ interface DynamicFormProps {
   visibleFieldIds?: string[]
   visibleOptionalGroupIds?: string[]
   controlOnly?: boolean
+  suppressSubsectionTitle?: string
   /** Optional: Custom field renderer */
   renderField?: (field: TemplateField, props: DynamicFormRenderProps) => React.ReactNode
 }
@@ -475,6 +476,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   visibleFieldIds,
   visibleOptionalGroupIds,
   controlOnly,
+  suppressSubsectionTitle,
   renderField
 }) => {
   // Group fields by section
@@ -964,7 +966,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       case 'select':
         return (
           <div className={`form-group ${error ? 'has-error' : ''}`} style={getFieldContainerStyle(field)}>
-            <label htmlFor={fieldId}>{label}</label>
+            <label htmlFor={fieldId}>
+              {label}
+              {field.validation?.required && <span className="required">*</span>}
+            </label>
             <select
               id={fieldId}
               {...register(fieldId, field.validation)}
@@ -1140,7 +1145,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           )}
           {groupedSectionFields(sectionName, fields).map((group, index) => (
             <div key={`${sectionName}-${group.title ?? 'default'}-${index}`} className="form-subsection">
-              {group.title && <h3 className="form-subsection-title">{group.title}</h3>}
+              {group.title && group.title !== suppressSubsectionTitle && (
+                <h3 className="form-subsection-title">{group.title}</h3>
+              )}
               <div className="form-section-fields">
                 {group.fields.map(field => {
                   if (

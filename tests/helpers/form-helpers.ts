@@ -44,8 +44,8 @@ async function isFinalSubmitStep(page: Page): Promise<boolean> {
 export async function gotoForm(page: Page) {
   await page.goto('/')
   await expect(page).toHaveTitle(/GuardianForm/i)
-  await expect(page.getByRole('heading', { name: 'GuardianForm' })).toBeVisible()
-  await page.getByRole('button', { name: /Get started/i }).click()
+  await expect(page.getByRole('button', { name: 'GuardianForm home' })).toBeVisible()
+  await page.getByRole('button', { name: /Start my report/i }).click()
   await expect(page.locator('.form-card-shell')).toBeVisible()
 }
 
@@ -84,6 +84,7 @@ export async function expectCurrentCardNotToContainText(page: Page, matcher: Tex
 }
 
 export async function goToNextCard(page: Page) {
+  await expect.poll(() => getCurrentStepId(page)).not.toBeNull()
   const previousStepId = await getCurrentStepId(page)
   if (!previousStepId) {
     throw new Error('Cannot navigate forward because no current form step is rendered')
@@ -111,6 +112,7 @@ export async function drawHandwrittenSignature(page: Page) {
 }
 
 export async function goToPreviousCard(page: Page) {
+  await expect.poll(() => getCurrentStepId(page)).not.toBeNull()
   const previousStepId = await getCurrentStepId(page)
   if (!previousStepId) {
     throw new Error('Cannot navigate backward because no current form step is rendered')
@@ -225,5 +227,10 @@ export function fieldInCurrentCard(page: Page, label: TextMatcher): Locator {
 export async function fillTextField(page: Page, label: TextMatcher, value: string) {
   const field = fieldInCurrentCard(page, label)
   await expect(field).toBeVisible()
+  if (await field.evaluate(element => element.tagName === 'SELECT')) {
+    await field.selectOption(value)
+    return
+  }
+
   await field.fill(value)
 }

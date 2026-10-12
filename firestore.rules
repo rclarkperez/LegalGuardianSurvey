@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function hasReportPayload() {
+      return request.resource.data.keys().hasOnly([
+          'title',
+          'templateId',
+          'templateVersion',
+          'formData',
+          'updatedAt',
+          'currentStepId',
+          'pdfStoragePath'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.templateId is string
+        && request.resource.data.templateVersion is string
+        && request.resource.data.formData is map
+        && request.resource.data.updatedAt is string
+        && (!('currentStepId' in request.resource.data) || request.resource.data.currentStepId is string)
+        && (!('pdfStoragePath' in request.resource.data) || request.resource.data.pdfStoragePath is string);
+    }
+
+    match /users/{userId}/drafts/{draftId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && draftId == 'current'
+        && hasReportPayload();
+    }
+
+    match /users/{userId}/reports/{reportId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && hasReportPayload();
+      allow update: if false;
+    }
+  }
+}

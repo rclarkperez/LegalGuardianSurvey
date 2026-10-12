@@ -1,16 +1,229 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
+import { AccountDialog } from './components/AccountDialog'
 import { TemplateForm } from './components/TemplateForm'
 import { guardianShipFormTemplate } from './templates/guardianShipForm.template'
+import { firebaseAuth } from './firebase/client'
+import {
+  deleteDraft,
+  downloadSavedReportPdf,
+  listSavedReports,
+  loadDraft,
+  removeSavedReport,
+  saveDraft,
+  saveReport,
+  type SavedReport
+} from './services/reportStore'
+import type { TemplateFormData } from './types/template.types'
 import './styles/templateForm.css'
 import './App.css'
+
+const SAVED_REPORTS_LOAD_TIMEOUT_MS = 3_000
+
+function getSavedReportsErrorMessage(error: unknown): string {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String(error.code)
+    : ''
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return 'You appear to be offline, so we couldn’t connect to your saved reports. Check your connection and try again.'
+  }
+
+  if (code === 'permission-denied') {
+    return 'We couldn’t access your saved reports. Check that Firestore security rules are deployed for this project.'
+  }
+
+  if (code === 'failed-precondition' || code === 'not-found') {
+    return 'Saved reports aren’t available yet. Check that the Firestore database is set up for this project.'
+  }
+
+  if (code === 'unauthenticated') {
+    return 'Your session has expired. Sign in again to load your saved reports.'
+  }
+
+  return 'No connection to your saved reports. Check your internet connection and try again.'
+}
 
 function App() {
   const [hasStarted, setHasStarted] = useState(false)
   const [clearRequest, setClearRequest] = useState(0)
+  const [homeRequest, setHomeRequest] = useState(0)
+  const [formSessionKey, setFormSessionKey] = useState(0)
+  const [initialFormData, setInitialFormData] = useState<TemplateFormData | undefined>()
+  const [initiallyReviewing, setInitiallyReviewing] = useState(false)
+  const [initialStepId, setInitialStepId] = useState<string | undefined>()
+  const [user, setUser] = useState<User | null>(null)
+  const [accountDialogOpen, setAccountDialogOpen] = useState(false)
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([])
+  const [savedDraft, setSavedDraft] = useState<SavedReport | null>(null)
+  const [accountLoading, setAccountLoading] = useState(false)
+  const [accountError, setAccountError] = useState('')
+  const [savedReportsError, setSavedReportsError] = useState('')
+  const [savedReportsLoadAttempt, setSavedReportsLoadAttempt] = useState(0)
+  const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!firebaseAuth) return
+
+    return onAuthStateChanged(firebaseAuth, authenticatedUser => {
+      setUser(authenticatedUser)
+      setAccountLoading(Boolean(authenticatedUser))
+      setSavedReports([])
+      setSavedDraft(null)
+      setAccountError('')
+      setSavedReportsError('')
+    }, error => {
+      setAccountError(error.message || 'Your account could not be checked.')
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+
+    let isActive = true
+    setAccountLoading(true)
+    setSavedReportsError('')
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const reportsRequest = Promise.all([
+      loadDraft(user, guardianShipFormTemplate.id),
+      listSavedReports(user)
+    ])
+    const timeoutRequest = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error('Saved reports request timed out.'))
+      }, SAVED_REPORTS_LOAD_TIMEOUT_MS)
+    })
+
+    Promise.race([reportsRequest, timeoutRequest])
+      .then(([draft, reports]) => {
+        if (!isActive) return
+        setSavedDraft(draft)
+        setSavedReports(reports.filter(report => report.templateId === guardianShipFormTemplate.id))
+      })
+      .catch(error => {
+        if (isActive) {
+          setSavedReportsError(getSavedReportsErrorMessage(error))
+        }
+      })
+      .finally(() => {
+        if (timeoutId) clearTimeout(timeoutId)
+        if (isActive) setAccountLoading(false)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [savedReportsLoadAttempt, user])
+
+  const handleDraftSave = useCallback(async (formData: TemplateFormData, currentStepId?: string) => {
+    if (!user) throw new Error('Sign in again to save your progress.')
+    await saveDraft(user, guardianShipFormTemplate.id, guardianShipFormTemplate.version, formData, currentStepId)
+    setSavedDraft({
+      id: 'current',
+      title: 'In-progress annual report',
+      templateId: guardianShipFormTemplate.id,
+      templateVersion: guardianShipFormTemplate.version,
+      formData,
+      updatedAt: new Date().toISOString()
+      , currentStepId
+    })
+  }, [user])
+
+  const handleReportSave = useCallback(async (formData: TemplateFormData, pdfBlob: Blob): Promise<string | void> => {
+    if (!user) throw new Error('Sign in again before saving this report.')
+    const report = await saveReport(
+      user,
+      guardianShipFormTemplate.id,
+      guardianShipFormTemplate.version,
+      formData,
+      pdfBlob
+    )
+    setSavedReports(current => [report, ...current].slice(0, 50))
+    try {
+      await deleteDraft(user)
+      setSavedDraft(null)
+    } catch (error) {
+      const notice = error instanceof Error
+        ? `Your previous draft could not be removed: ${error.message}`
+        : 'Your previous draft could not be removed.'
+      setAccountError(
+        `Your report was saved, but ${notice.charAt(0).toLowerCase()}${notice.slice(1)}`
+      )
+      return notice
+    }
+  }, [user])
+
+  const handleClearForm = () => {
+    setClearRequest(0)
+    setHasStarted(false)
+    setInitialFormData(undefined)
+
+    if (user) {
+      void deleteDraft(user).then(() => {
+        setSavedDraft(null)
+      }).catch(error => {
+        setAccountError(
+          error instanceof Error
+            ? `The form was cleared on this device, but its saved draft could not be removed: ${error.message}`
+            : 'The form was cleared on this device, but its saved draft could not be removed.'
+        )
+      })
+    }
+  }
+
+  const startWithData = (formData?: TemplateFormData, review = false, stepId?: string) => {
+    setInitialFormData(formData)
+    setInitiallyReviewing(review)
+    setInitialStepId(stepId)
+    setFormSessionKey(key => key + 1)
+    setHasStarted(true)
+  }
+
+  const handleSignOut = async () => {
+    if (!firebaseAuth) return
+    try {
+      await signOut(firebaseAuth)
+    } catch (error) {
+      setAccountError(
+        error instanceof Error
+          ? `You could not be signed out: ${error.message}`
+          : 'You could not be signed out. Check your connection and try again.'
+      )
+    }
+  }
+
+  const handleDeleteReport = async (reportId: string) => {
+    if (!user || !window.confirm('Delete this saved report? This cannot be undone.')) return
+    try {
+      await removeSavedReport(user, reportId)
+      setSavedReports(reports => reports.filter(report => report.id !== reportId))
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : 'The report could not be deleted.')
+    }
+  }
+
+  const handleDownloadReport = async (report: SavedReport) => {
+    if (!user) return
+    setDownloadingReportId(report.id)
+    setAccountError('')
+    try {
+      const pdfBlob = await downloadSavedReportPdf(user, report)
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${report.templateId}_${report.id}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : 'The saved PDF could not be downloaded.')
+    } finally {
+      setDownloadingReportId(null)
+    }
+  }
 
   const handleLogoClick = () => {
     if (hasStarted) {
-      setClearRequest(request => request + 1)
+      setHomeRequest(request => request + 1)
       return
     }
 
@@ -28,68 +241,179 @@ function App() {
         >
           <img className="brand-mark" src="/guardianform-mark.svg" alt="" />
           <span className="brand-copy">
-            <h2 className="brand-product-name">GuardianForm</h2>
-            <span className="brand-name">Legal Guardian<br />Survey App</span>
-            <span className="brand-tagline">Form workflows · PDF generation</span>
+            <span className="brand-name">GuardianForm</span>
+            <span className="brand-tagline">Guardian and conservator report</span>
           </span>
         </button>
-        <button
-          className="account-toggle"
-          type="button"
-          onClick={(event) => event.preventDefault()}
-          aria-label="Login and logout, coming soon"
-          title="Login and logout will be available in a future update"
-        >
-          <span>Log in</span>
-          <span className="account-toggle-divider">/</span>
-          <span>Log out</span>
-          <small>Coming soon</small>
-        </button>
+        {user ? (
+          <div className="account-header">
+            <span className="account-email">{user.email}</span>
+            {!hasStarted && (
+              <button className="account-header-button" type="button" onClick={() => void handleSignOut()}>
+                Sign out
+              </button>
+            )}
+          </div>
+        ) : (
+          <button className="account-header-button" type="button" onClick={() => setAccountDialogOpen(true)}>
+            Sign in
+          </button>
+        )}
       </header>
       <main className={hasStarted ? 'survey-main' : 'landing-main'}>
         {hasStarted ? (
           <TemplateForm
+            key={formSessionKey}
             template={guardianShipFormTemplate}
             clearRequest={clearRequest}
-            onClear={() => {
-              setClearRequest(0)
+            homeRequest={homeRequest}
+            initialData={initialFormData}
+            initialStepId={initialStepId}
+            initiallyReviewing={initiallyReviewing}
+            onDraftSave={user ? handleDraftSave : undefined}
+            onHome={async (formData, shouldSave, currentStepId) => {
+              if (shouldSave && user) {
+                await handleDraftSave(formData, currentStepId)
+              } else if (!shouldSave && user) {
+                await deleteDraft(user)
+                setSavedDraft(null)
+              }
               setHasStarted(false)
+              setInitialFormData(undefined)
+              setHomeRequest(0)
             }}
+            onReportSave={user ? handleReportSave : undefined}
+            onClear={handleClearForm}
           />
         ) : (
-          <section className="landing-page" aria-labelledby="landing-title">
-            <div className="landing-copy">
-              <span className="landing-eyebrow">GuardianForm</span>
-              <h1 id="landing-title">A clearer way to complete your guardian report.</h1>
-              <p className="landing-intro">
-                GuardianForm guides you through the information needed for a legal guardian
-                survey and helps turn your answers into a completed PDF form.
-              </p>
-              <button className="get-started-button" type="button" onClick={() => setHasStarted(true)}>
-                Get started
-                <span aria-hidden="true">→</span>
-              </button>
-              <p className="landing-note">You can review your answers before generating the PDF.</p>
-            </div>
-            <div className="landing-panel" aria-hidden="true">
-              <div className="landing-panel-header">
-                <span className="landing-panel-dot" />
-                <span>Guardian survey</span>
-              </div>
-              <div className="landing-panel-line landing-panel-line-wide" />
-              <div className="landing-panel-line" />
-              <div className="landing-panel-line landing-panel-line-short" />
-              <div className="landing-panel-progress">
-                <span />
-              </div>
-              <span className="landing-panel-caption">Step-by-step guidance</span>
-            </div>
-          </section>
+          <div className="landing-home">
+            {user ? (
+              <section className="account-welcome" aria-labelledby="account-welcome-title">
+                <div>
+                  <span className="landing-eyebrow">Your GuardianForm account</span>
+                  <h1 id="account-welcome-title">Welcome back</h1>
+                  <p>Signed in as <strong>{user.email}</strong>. Your reports and saved progress are listed below.</p>
+                </div>
+                <button className="get-started-button" type="button" onClick={() => startWithData()}>
+                  Start a new report
+                  <span aria-hidden="true">→</span>
+                </button>
+              </section>
+            ) : (
+              <section className="landing-page" aria-labelledby="landing-title">
+                <div className="landing-copy">
+                  <span className="landing-eyebrow">For guardians and conservators</span>
+                  <h1 id="landing-title">Your annual report made simple</h1>
+                  <p className="landing-intro">
+                    Answer a few questions at a time. We’ll turn your answers into a completed
+                    report you can review, sign, and download.
+                  </p>
+                  <button className="get-started-button" type="button" onClick={() => startWithData()}>
+                    Start my report
+                    <span aria-hidden="true">→</span>
+                  </button>
+                  <p className="landing-note">
+                    <strong>Tip:</strong> Have your case number, key dates, and financial records nearby.
+                  </p>
+                </div>
+                <div className="landing-art">
+                  <img
+                    className="landing-photo"
+                    src="/guardian-report-photo.png"
+                    alt="People working together to complete paperwork at a table"
+                  />
+                </div>
+              </section>
+            )}
+            {user && (
+              <section className="saved-reports-panel" aria-labelledby="saved-reports-title">
+                <div className="saved-reports-heading">
+                  <div>
+                    <h2 id="saved-reports-title">Your reports</h2>
+                    <p>In-progress drafts and completed reports saved to this account.</p>
+                  </div>
+                </div>
+                {accountLoading && (
+                  <div className="saved-reports-loading" role="status" aria-live="polite">
+                    <span className="saved-reports-spinner" aria-hidden="true" />
+                    <span>Loading your saved reports…</span>
+                  </div>
+                )}
+                {savedReportsError && (
+                  <div className="saved-reports-error" role="alert">
+                    <p>{savedReportsError}</p>
+                    <button
+                      className="saved-report-action"
+                      type="button"
+                      onClick={() => setSavedReportsLoadAttempt(attempt => attempt + 1)}
+                      disabled={accountLoading}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {accountError && <p className="account-message is-error" role="alert">{accountError}</p>}
+                {!accountLoading && !savedReportsError && savedDraft && (
+                  <article className="saved-report-row">
+                    <div>
+                      <h3>Continue your report</h3>
+                      <p>Progress saved {new Date(savedDraft.updatedAt).toLocaleString()}</p>
+                    </div>
+                    <button
+                      className="saved-report-action"
+                      type="button"
+                      onClick={() => startWithData(savedDraft.formData, false, savedDraft.currentStepId)}
+                    >
+                      Resume
+                    </button>
+                  </article>
+                )}
+                {!accountLoading && !savedReportsError && savedReports.length === 0 && !savedDraft && (
+                  <p className="saved-reports-empty">
+                    No saved reports found yet. Start a report and it will appear here.
+                  </p>
+                )}
+                {!accountLoading && !savedReportsError && savedReports.map(report => (
+                  <article className="saved-report-row" key={report.id}>
+                    <div>
+                      <h3>{report.title}</h3>
+                      <p>Saved {new Date(report.updatedAt).toLocaleString()}</p>
+                    </div>
+                    <div className="saved-report-actions">
+                      <button
+                        className="saved-report-action"
+                        type="button"
+                        onClick={() => startWithData(report.formData, true)}
+                      >
+                        Review
+                      </button>
+                      <button
+                        className="saved-report-action"
+                        type="button"
+                        onClick={() => void handleDownloadReport(report)}
+                        disabled={downloadingReportId === report.id}
+                      >
+                        {downloadingReportId === report.id ? 'Downloading…' : 'Download PDF'}
+                      </button>
+                      <button
+                        className="saved-report-delete"
+                        type="button"
+                        onClick={() => void handleDeleteReport(report.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+          </div>
         )}
       </main>
       <footer className="app-footer">
-        <p>&copy; 2024 GuardianForm. All rights reserved.</p>
+        <p>Review your report before downloading.</p>
       </footer>
+      {accountDialogOpen && <AccountDialog onClose={() => setAccountDialogOpen(false)} />}
     </div>
   )
 }

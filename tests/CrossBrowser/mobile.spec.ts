@@ -17,7 +17,7 @@ test.describe('GuardianForm mobile responsive coverage', () => {
   test('renders the first card and mobile action bar cleanly', async ({ page }) => {
     await gotoForm(page)
 
-    await expectCurrentCardTitle(page, /Section A - General Information/i)
+    await expectCurrentCardTitle(page, /Court and Case/i)
     await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Clear Form' })).toBeVisible()
     await expect(currentCard(page)).toBeVisible()
@@ -29,7 +29,7 @@ test.describe('GuardianForm mobile responsive coverage', () => {
     await page.getByLabel(/county/i).fill('King')
     await goToNextCard(page)
     await expect(page.getByRole('button', { name: 'Previous' })).toBeVisible()
-    await expectCurrentCardTitle(page, /Section A - General Information/i)
+    await expectCurrentCardTitle(page, /Court and Case/i)
   })
 
   test('keeps the unblocked liquid-asset institution card hidden after choosing no', async ({ page }) => {

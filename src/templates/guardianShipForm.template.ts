@@ -1198,6 +1198,15 @@ const REPORT_TYPE_OPTIONS = [
   { label: 'Final Report (RPT)', value: 'final' }
 ]
 
+const WASHINGTON_COUNTY_OPTIONS = [
+  'Adams', 'Asotin', 'Benton', 'Chelan', 'Clallam', 'Clark', 'Columbia', 'Cowlitz',
+  'Douglas', 'Ferry', 'Franklin', 'Garfield', 'Grant', 'Grays Harbor', 'Island',
+  'Jefferson', 'King', 'Kitsap', 'Kittitas', 'Klickitat', 'Lewis', 'Lincoln',
+  'Mason', 'Okanogan', 'Pacific', 'Pend Oreille', 'Pierce', 'San Juan', 'Skagit',
+  'Skamania', 'Snohomish', 'Spokane', 'Stevens', 'Thurston', 'Wahkiakum',
+  'Walla Walla', 'Whatcom', 'Whitman', 'Yakima'
+].map(county => ({ label: county, value: county }))
+
 const REPORTING_INTERVAL_OPTIONS = [
   { label: 'Every 12 months', value: '12' },
   { label: 'Every 24 months', value: '24' },
@@ -2918,8 +2927,8 @@ export const guardianShipFormTemplate: PdfTemplate = {
     {
       id: 'countyName',
       label: 'Which county is this case filed in?',
-      type: 'text',
-      placeholder: 'County name',
+      type: 'select',
+      options: [{ label: 'Select a county', value: '' }, ...WASHINGTON_COUNTY_OPTIONS],
       section: 'General Information',
       width: 4,
       validation: { required: 'County name is required' },
