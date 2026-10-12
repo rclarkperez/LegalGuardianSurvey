@@ -183,6 +183,11 @@ function App() {
     if (!firebaseAuth) return
     try {
       await signOut(firebaseAuth)
+      setHasStarted(false)
+      setInitialFormData(undefined)
+      setInitialStepId(undefined)
+      setInitiallyReviewing(false)
+      setHomeRequest(0)
     } catch (error) {
       setAccountError(
         error instanceof Error
@@ -248,11 +253,9 @@ function App() {
         {user ? (
           <div className="account-header">
             <span className="account-email">{user.email}</span>
-            {!hasStarted && (
-              <button className="account-header-button" type="button" onClick={() => void handleSignOut()}>
-                Sign out
-              </button>
-            )}
+            <button className="account-header-button" type="button" onClick={() => void handleSignOut()}>
+              Sign out
+            </button>
           </div>
         ) : (
           <button className="account-header-button" type="button" onClick={() => setAccountDialogOpen(true)}>

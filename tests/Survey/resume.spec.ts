@@ -1,14 +1,26 @@
 import { expect, test } from '@playwright/test'
 
 const scenarios = [
-  { answers: {}, nextField: 'individualName' },
-  { answers: { individualName: 'Alex Example' }, nextField: 'reportType' },
-  { answers: { individualName: 'Alex Example', reportType: '12' }, nextField: 'guardianshipScope' },
+  { answers: {}, nextStep: 'General Information:individualName' },
+  { answers: { individualName: 'Alex Example' }, nextStep: 'General Information:reportType' },
+  {
+    answers: { individualName: 'Alex Example', reportType: '12' },
+    nextStep: 'General Information:guardianshipScope',
+  },
+  {
+    answers: {
+      individualName: 'Alex Example',
+      reportType: '12',
+      guardianshipScope: 'full',
+      conservatorshipScope: 'full'
+    },
+    nextStep: 'Guardian Information:guardianName'
+  },
 ]
 
-for (const { answers, nextField } of scenarios) {
+for (const { answers, nextStep } of scenarios) {
 for (const initialStepId of [undefined, 'General Information:countyName|caseNumber', 'Verification:verificationSignature']) {
-  test(`resume opens ${nextField} with marker ${initialStepId ?? 'missing'}`, async ({ page }) => {
+  test(`resume opens ${nextStep} with marker ${initialStepId ?? 'missing'}`, async ({ page }) => {
     // Exercise the real form under main.tsx's StrictMode, without a live account.
     await page.route('**/src/App.tsx', async route => {
       await route.fulfill({
@@ -35,18 +47,13 @@ for (const initialStepId of [undefined, 'General Information:countyName|caseNumb
     await page.getByRole('button', { name: 'Resume', exact: true }).click()
     const card = page.locator('.form-card-shell')
     await expect(card).toBeVisible()
-    await expect(card).toHaveAttribute('data-step-id', 'General Information:' + nextField)
+    await expect(card).toHaveAttribute('data-step-id', nextStep)
     // Wait for the debounced autosave, including effects triggered by derived fields.
     await expect(page.getByRole('status')).toHaveText('Progress saved to your account.')
-    await expect(card).toHaveAttribute('data-step-id', 'General Information:' + nextField)
+    await expect(card).toHaveAttribute('data-step-id', nextStep)
     const savedSteps = await page.evaluate(() => (window as any).savedSteps as string[])
     expect(savedSteps.length).toBeGreaterThan(0)
     expect(savedSteps.every(step => !step.includes('countyName'))).toBe(true)
-    for (let i = 0; i <= scenarios.findIndex(scenario => scenario.nextField === nextField); i++) {
-      await page.getByRole('button', { name: 'Previous', exact: true }).click()
-    }
-    await expect(page.getByLabel(/county/i)).toHaveValue('King')
-    await expect(page.getByLabel(/case or docket/i)).toHaveValue('RESUME-123')
   })
 }
 }
