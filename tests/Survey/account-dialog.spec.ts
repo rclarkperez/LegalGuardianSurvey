@@ -7,7 +7,7 @@ test('account entry explains whether online saving is configured', async ({ page
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
 
-  const setupMessage = dialog.getByText('Account saving is not configured for this site yet.')
+  const setupMessage = dialog.getByText(/Firebase Authentication is not configured for this deployment/i)
   if (await setupMessage.count()) {
     await expect(setupMessage).toBeVisible()
     await expect(dialog.getByLabel('Email address')).toHaveCount(0)
@@ -27,7 +27,7 @@ test('account dialog supports account creation and password reset paths', async 
   await page.getByRole('button', { name: 'Sign in' }).click()
 
   const dialog = page.getByRole('dialog')
-  const setupMessage = dialog.getByText('Account saving is not configured for this site yet.')
+  const setupMessage = dialog.getByText(/Firebase Authentication is not configured for this deployment/i)
   test.skip(await setupMessage.count() > 0, 'Firebase Authentication is not configured in this environment')
 
   await expect(dialog.getByRole('heading', { name: 'Sign in to GuardianForm' })).toBeVisible()
@@ -46,9 +46,41 @@ test('account dialog supports account creation and password reset paths', async 
   await expect(dialog.getByRole('button', { name: 'Send reset link' })).toBeVisible()
 })
 
+test('unknown sign-in account prompts the user to create an account', async ({ page }) => {
+  await page.route('**/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword**', async route => {
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 400, message: 'EMAIL_NOT_FOUND' } })
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  const dialog = page.getByRole('dialog')
+  const setupMessage = dialog.getByText('Account saving is not configured for this site yet.')
+  test.skip(await setupMessage.count() > 0, 'Firebase Authentication is not configured in this environment')
+
+  await dialog.getByLabel('Email address').fill('missing@example.com')
+  await dialog.getByRole('textbox', { name: 'Password', exact: true }).fill('password123')
+  await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
+
+  const prompt = dialog.getByRole('alertdialog', { name: 'Account not found' })
+  await expect(prompt).toBeVisible()
+  await expect(prompt).toContainText('Would you like to create one?')
+  await prompt.getByRole('button', { name: 'No, try again' }).click()
+  await expect(prompt).toBeHidden()
+
+  await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(dialog.getByRole('alertdialog', { name: 'Account not found' })).toBeVisible()
+  await dialog.getByRole('alertdialog', { name: 'Account not found' })
+    .getByRole('button', { name: 'Yes, create account' }).click()
+  await expect(dialog.getByRole('heading', { name: 'Create your account' })).toBeVisible()
+})
+
 test('save progress button explains account saving for signed-out users', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText(/save your progress.*resume at your next unanswered question/i)).toBeVisible()
+  await expect(page.getByText('Create an account to save your progress and resume later.')).toBeVisible()
   await page.getByRole('button', { name: /Start my report/i }).click()
   await page.getByRole('button', { name: 'Save progress' }).click()
 

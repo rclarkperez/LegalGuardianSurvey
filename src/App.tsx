@@ -340,8 +340,7 @@ function App() {
                     <span aria-hidden="true">→</span>
                   </button>
                   <p className="landing-note">
-                    <strong>Create an account:</strong> Save your progress, resume at your next unanswered question,
-                    and access completed reports from this account. You can also continue without signing in.
+                    Create an account to save your progress and resume later.
                   </p>
                 </div>
                 <div className="landing-art">

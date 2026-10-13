@@ -531,6 +531,32 @@ main {
   box-shadow: none;
 }
 
+.account-create-prompt {
+  margin-top: 1.1rem;
+  padding: 1rem;
+  border: 1px solid #c0d0c4;
+  border-radius: 10px;
+  background: #eef5ef;
+}
+
+.account-create-prompt h3 {
+  color: #263746;
+  font-size: 1.05rem;
+}
+
+.account-create-prompt p {
+  margin-top: 0.45rem;
+  color: #46574d;
+  line-height: 1.45;
+}
+
+.account-create-prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
 .account-message {
   color: #12574f;
   font-size: 0.9rem;

@@ -43,11 +43,13 @@ export function AccountDialog({ onClose }: AccountDialogProps) {
   const [isBusy, setIsBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [createAccountPromptOpen, setCreateAccountPromptOpen] = useState(false)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrorMessage('')
     setSuccessMessage('')
+    setCreateAccountPromptOpen(false)
 
     if (!firebaseAuth) {
       setErrorMessage('Online accounts are not configured for this site yet.')
@@ -72,7 +74,14 @@ export function AccountDialog({ onClose }: AccountDialogProps) {
         onClose()
       }
     } catch (error) {
-      setErrorMessage(getAuthErrorMessage(error))
+      const code = typeof error === 'object' && error !== null && 'code' in error
+        ? String(error.code)
+        : ''
+      if (mode === 'sign-in' && ['auth/invalid-credential', 'auth/user-not-found'].includes(code)) {
+        setCreateAccountPromptOpen(true)
+      } else {
+        setErrorMessage(getAuthErrorMessage(error))
+      }
     } finally {
       setIsBusy(false)
     }
@@ -103,6 +112,25 @@ export function AccountDialog({ onClose }: AccountDialogProps) {
             <p className="account-dialog-intro">
               Sign in to save your progress and access reports from this account.
             </p>
+            {createAccountPromptOpen ? (
+              <div className="account-create-prompt" role="alertdialog" aria-labelledby="create-account-prompt-title">
+                <h3 id="create-account-prompt-title">Account not found</h3>
+                <p>We couldn’t find an account with this email. Would you like to create one?</p>
+                <div className="account-create-prompt-actions">
+                  <button type="button" className="secondary-button" onClick={() => setCreateAccountPromptOpen(false)}>
+                    No, try again
+                  </button>
+                  <button type="button" className="account-submit-button" onClick={() => {
+                    setCreateAccountPromptOpen(false)
+                    setMode('create-account')
+                    setPassword('')
+                    setConfirmation('')
+                  }}>
+                    Yes, create account
+                  </button>
+                </div>
+              </div>
+            ) : (
             <form className="account-form" onSubmit={handleSubmit}>
               <label htmlFor="account-email">Email address</label>
               <input
@@ -147,6 +175,7 @@ export function AccountDialog({ onClose }: AccountDialogProps) {
                 {isBusy ? 'Please wait…' : mode === 'create-account' ? 'Create account' : mode === 'reset-password' ? 'Send reset link' : 'Sign in'}
               </button>
             </form>
+            )}
             <div className="account-dialog-links">
               {mode === 'sign-in' && (
                 <>
@@ -161,7 +190,7 @@ export function AccountDialog({ onClose }: AccountDialogProps) {
           </>
         ) : (
           <div className="account-setup-message" role="status">
-            <p>Account saving is not configured for this site yet.</p>
+            <p>Sign-in is unavailable because Firebase Authentication is not configured for this deployment.</p>
           </div>
         )}
       </section>
