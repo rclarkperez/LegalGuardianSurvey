@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { AccountDialog } from './components/AccountDialog'
 import { AccountSettingsDialog } from './components/AccountSettingsDialog'
+import { SavedDraftRow } from './components/SavedDraftRow'
 import { TemplateForm } from './components/TemplateForm'
 import { guardianShipFormTemplate } from './templates/guardianShipForm.template'
 import { firebaseAuth } from './firebase/client'
@@ -210,6 +211,16 @@ function App() {
     }
   }
 
+  const handleDeleteDraft = async () => {
+    if (!user || !savedDraft || !window.confirm('Delete this report draft? This cannot be undone.')) return
+    try {
+      await deleteDraft(user)
+      setSavedDraft(null)
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : 'The report draft could not be deleted.')
+    }
+  }
+
   const handleDownloadReport = async (report: SavedReport) => {
     if (!user) return
     setDownloadingReportId(report.id)
@@ -301,10 +312,9 @@ function App() {
             onHome={async (formData, shouldSave, currentStepId) => {
               if (shouldSave && user) {
                 await handleDraftSave(formData, currentStepId)
-              } else if (!shouldSave && user) {
-                await deleteDraft(user)
-                setSavedDraft(null)
               }
+              // Choosing “Don't save” only leaves the current form session. It must not
+              // overwrite or remove an already-saved draft; deletion is explicit.
               setHasStarted(false)
               setInitialFormData(undefined)
               setHomeRequest(0)
@@ -381,19 +391,11 @@ function App() {
                 )}
                 {accountError && <p className="account-message is-error" role="alert">{accountError}</p>}
                 {!accountLoading && !savedReportsError && savedDraft && (
-                  <article className="saved-report-row">
-                    <div>
-                      <h3>Continue your report</h3>
-                      <p>Progress saved {new Date(savedDraft.updatedAt).toLocaleString()}</p>
-                    </div>
-                    <button
-                      className="saved-report-action"
-                      type="button"
-                      onClick={() => startWithData(savedDraft.formData, false, savedDraft.currentStepId)}
-                    >
-                      Resume
-                    </button>
-                  </article>
+                  <SavedDraftRow
+                    draft={savedDraft}
+                    onResume={() => startWithData(savedDraft.formData, false, savedDraft.currentStepId)}
+                    onDelete={() => void handleDeleteDraft()}
+                  />
                 )}
                 {!accountLoading && !savedReportsError && savedReports.length === 0 && !savedDraft && (
                   <p className="saved-reports-empty">
