@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { AccountDialog } from './components/AccountDialog'
 import { AccountSettingsDialog } from './components/AccountSettingsDialog'
+import { DraftDeleteDialog } from './components/DraftDeleteDialog'
 import { SavedDraftRow } from './components/SavedDraftRow'
 import { TemplateForm } from './components/TemplateForm'
 import { guardianShipFormTemplate } from './templates/guardianShipForm.template'
@@ -65,6 +66,7 @@ function App() {
   const [savedReportsError, setSavedReportsError] = useState('')
   const [savedReportsLoadAttempt, setSavedReportsLoadAttempt] = useState(0)
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null)
+  const [draftDeletePromptOpen, setDraftDeletePromptOpen] = useState(false)
 
   useEffect(() => {
     if (!firebaseAuth) return
@@ -212,10 +214,11 @@ function App() {
   }
 
   const handleDeleteDraft = async () => {
-    if (!user || !savedDraft || !window.confirm('Delete this report draft? This cannot be undone.')) return
+    if (!user || !savedDraft) return
     try {
       await deleteDraft(user)
       setSavedDraft(null)
+      setDraftDeletePromptOpen(false)
     } catch (error) {
       setAccountError(error instanceof Error ? error.message : 'The report draft could not be deleted.')
     }
@@ -394,7 +397,7 @@ function App() {
                   <SavedDraftRow
                     draft={savedDraft}
                     onResume={() => startWithData(savedDraft.formData, false, savedDraft.currentStepId)}
-                    onDelete={() => void handleDeleteDraft()}
+                    onDelete={() => setDraftDeletePromptOpen(true)}
                   />
                 )}
                 {!accountLoading && !savedReportsError && savedReports.length === 0 && !savedDraft && (
@@ -442,6 +445,12 @@ function App() {
       <footer className="app-footer">
         <p>Review your report before downloading.</p>
       </footer>
+      {draftDeletePromptOpen && (
+        <DraftDeleteDialog
+          onCancel={() => setDraftDeletePromptOpen(false)}
+          onConfirm={() => void handleDeleteDraft()}
+        />
+      )}
       {accountDialogOpen && <AccountDialog onClose={() => setAccountDialogOpen(false)} />}
       {accountSettingsOpen && user && (
         <AccountSettingsDialog
