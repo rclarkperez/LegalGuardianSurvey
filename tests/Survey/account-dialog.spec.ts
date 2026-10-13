@@ -89,3 +89,44 @@ test('signed-in users can save progress without the sign-in prompt', async ({ pa
   await expect(page.getByRole('status')).toHaveText('Progress saved to your account.')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
+
+test('account settings validates password changes and account deletion', async ({ page }) => {
+  await page.route('**/src/App.tsx', async route => {
+    await route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        import React from '/node_modules/.vite/deps/react.js';
+        import { AccountSettingsDialog } from '/src/components/AccountSettingsDialog.tsx';
+        import '/src/App.css';
+        export default function App() {
+          const user = { email: 'user@example.com', uid: 'test-user' };
+          return React.createElement(AccountSettingsDialog, {
+            user,
+            onClose: () => {},
+            onDeleted: () => {}
+          });
+        }
+      `,
+    })
+  })
+
+  await page.goto('/')
+  const dialog = page.getByRole('dialog', { name: 'Account settings' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByRole('textbox', { name: 'New password', exact: true }).fill('password123')
+  await dialog.getByRole('textbox', { name: 'Confirm new password', exact: true }).fill('different123')
+  await dialog.getByRole('textbox', { name: 'Current password', exact: true }).nth(1).fill('current-password')
+  await dialog.getByRole('button', { name: 'Update password' }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('The new passwords do not match.')
+  await expect(dialog.getByRole('textbox', { name: 'Confirm new password', exact: true })).toHaveAttribute('aria-invalid', 'true')
+
+  await dialog.getByLabel('Type DELETE to confirm').click()
+  await dialog.getByLabel('Type DELETE to confirm').fill('delete')
+  await dialog.getByRole('textbox', { name: 'Current password', exact: true }).last().fill('current-password')
+  await dialog.getByRole('button', { name: 'Delete account' }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('Type DELETE to confirm account deletion.')
+  await expect(dialog.getByLabel('Type DELETE to confirm')).toHaveAttribute('aria-invalid', 'true')
+  await expect(dialog.getByLabel('Type DELETE to confirm')).toHaveAttribute('autocomplete', 'new-password')
+  await expect(dialog.getByRole('alert')).toHaveCSS('color', 'rgb(155, 44, 32)')
+})

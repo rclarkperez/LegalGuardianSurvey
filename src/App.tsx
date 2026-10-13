@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { AccountDialog } from './components/AccountDialog'
+import { AccountSettingsDialog } from './components/AccountSettingsDialog'
 import { TemplateForm } from './components/TemplateForm'
 import { guardianShipFormTemplate } from './templates/guardianShipForm.template'
 import { firebaseAuth } from './firebase/client'
@@ -54,6 +55,8 @@ function App() {
   const [initialStepId, setInitialStepId] = useState<string | undefined>()
   const [user, setUser] = useState<User | null>(null)
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [savedReports, setSavedReports] = useState<SavedReport[]>([])
   const [savedDraft, setSavedDraft] = useState<SavedReport | null>(null)
   const [accountLoading, setAccountLoading] = useState(false)
@@ -235,6 +238,8 @@ function App() {
     setHasStarted(false)
   }
 
+  const hasSavedReports = Boolean(savedDraft) || savedReports.length > 0
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -253,9 +258,27 @@ function App() {
         {user ? (
           <div className="account-header">
             <span className="account-email">{user.email}</span>
-            <button className="account-header-button" type="button" onClick={() => void handleSignOut()}>
-              Sign out
+            <button
+              className="account-header-button"
+              type="button"
+              aria-label="Account menu"
+              aria-expanded={accountMenuOpen}
+              onClick={() => setAccountMenuOpen(open => !open)}
+            >
+              Account
             </button>
+            {accountMenuOpen && (
+              <div className="account-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => {
+                  setAccountMenuOpen(false)
+                  setAccountSettingsOpen(true)
+                }}>Account settings</button>
+                <button type="button" role="menuitem" onClick={() => {
+                  setAccountMenuOpen(false)
+                  void handleSignOut()
+                }}>Sign out</button>
+              </div>
+            )}
           </div>
         ) : (
           <button className="account-header-button" type="button" onClick={() => setAccountDialogOpen(true)}>
@@ -296,7 +319,7 @@ function App() {
                 <div>
                   <span className="landing-eyebrow">Your GuardianForm account</span>
                   <h1 id="account-welcome-title">Welcome back</h1>
-                  <p>Signed in as <strong>{user.email}</strong>. Your reports and saved progress are listed below.</p>
+                  <p>Signed in as <strong>{user.email}</strong>. Your saved reports are listed below.</p>
                 </div>
                 <button className="get-started-button" type="button" onClick={() => startWithData()}>
                   Start a new report
@@ -334,8 +357,8 @@ function App() {
               <section className="saved-reports-panel" aria-labelledby="saved-reports-title">
                 <div className="saved-reports-heading">
                   <div>
-                    <h2 id="saved-reports-title">Your reports</h2>
-                    <p>In-progress drafts and completed reports saved to this account.</p>
+                    <h2 id="saved-reports-title">Saved reports</h2>
+                    {hasSavedReports && <p>Drafts and completed reports saved to your account.</p>}
                   </div>
                 </div>
                 {accountLoading && (
@@ -375,7 +398,7 @@ function App() {
                 )}
                 {!accountLoading && !savedReportsError && savedReports.length === 0 && !savedDraft && (
                   <p className="saved-reports-empty">
-                    No saved reports found yet. Start a report and it will appear here.
+                    No saved reports yet. Start a report to see it here.
                   </p>
                 )}
                 {!accountLoading && !savedReportsError && savedReports.map(report => (
@@ -419,6 +442,18 @@ function App() {
         <p>Review your report before downloading.</p>
       </footer>
       {accountDialogOpen && <AccountDialog onClose={() => setAccountDialogOpen(false)} />}
+      {accountSettingsOpen && user && (
+        <AccountSettingsDialog
+          user={user}
+          onClose={() => setAccountSettingsOpen(false)}
+          onDeleted={() => {
+            setAccountSettingsOpen(false)
+            setAccountMenuOpen(false)
+            setHasStarted(false)
+            setInitialFormData(undefined)
+          }}
+        />
+      )}
     </div>
   )
 }

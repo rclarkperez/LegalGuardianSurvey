@@ -135,6 +135,26 @@ export async function deleteDraft(user: User): Promise<void> {
   await deleteDoc(getUserDocument(user, 'drafts', DRAFT_ID))
 }
 
+export async function deleteAccountData(user: User): Promise<void> {
+  await deleteDraft(user)
+
+  const reportsSnapshot = await getDocs(collection(getFirestore(), 'users', user.uid, 'reports'))
+  for (const reportSnapshot of reportsSnapshot.docs) {
+    const report = asSavedReport(reportSnapshot.id, reportSnapshot.data())
+    if (report.pdfStoragePath) {
+      try {
+        await deleteObject(storageRef(getStorage(), report.pdfStoragePath))
+      } catch (error) {
+        const code = typeof error === 'object' && error !== null && 'code' in error
+          ? String(error.code)
+          : ''
+        if (code !== 'storage/object-not-found') throw error
+      }
+    }
+    await deleteDoc(reportSnapshot.ref)
+  }
+}
+
 export async function saveReport(
   user: User,
   templateId: string,

@@ -76,10 +76,40 @@
 }
 
 .account-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.9rem;
   min-width: 0;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 11rem;
+  padding: 0.35rem;
+  border: 1px solid #c0d0c4;
+  border-radius: 9px;
+  background: #f7faf7;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.account-menu button {
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #263746;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.account-menu button:hover {
+  background: #e5eee8;
+  box-shadow: none;
 }
 
 .account-email {
@@ -402,6 +432,11 @@ main {
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
 }
 
+.account-settings-dialog {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+
 .account-dialog h2 {
   padding-right: 1.75rem;
   color: #263746;
@@ -504,6 +539,71 @@ main {
 
 .account-message.is-error {
   color: #9b2c20;
+}
+
+.account-settings-section .account-field-error {
+  margin: -0.2rem 0 0.15rem;
+  color: #9b2c20;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.account-form input[aria-invalid="true"] {
+  border-color: #9b2c20;
+  outline: 3px solid rgba(155, 44, 32, 0.15);
+}
+
+.account-toast {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 1300;
+  max-width: min(28rem, calc(100vw - 2rem));
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #9bc8ba;
+  border-radius: 9px;
+  background: #eef8f2;
+  color: #12574f;
+  box-shadow: 0 12px 28px rgba(10, 24, 36, 0.2);
+  animation: account-toast-fade 10s ease-in forwards;
+}
+
+@keyframes account-toast-fade {
+  0%, 82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.account-settings-section {
+  padding-top: 1rem;
+  border-top: 1px solid #d2ddd5;
+}
+
+.account-settings-section h3 {
+  margin: 0 0 0.2rem;
+  color: #263746;
+  font-size: 1rem;
+}
+
+.account-settings-section p {
+  margin: 0;
+  color: #46574d;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.account-danger-section {
+  margin-top: 1rem;
+}
+
+.account-delete-button {
+  margin-top: 0.65rem;
+  border-radius: 7px;
+  background: #9b2c20;
+}
+
+.account-delete-button:hover:not(:disabled) {
+  background: #7f2118;
+  box-shadow: none;
 }
 
 @media (max-width: 768px) {
