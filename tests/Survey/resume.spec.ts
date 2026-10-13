@@ -29,15 +29,12 @@ for (const initialStepId of [undefined, 'General Information:countyName|caseNumb
           import React from '/node_modules/.vite/deps/react.js';
           import { TemplateForm } from '/src/components/TemplateForm.tsx';
           import { guardianShipFormTemplate } from '/src/templates/guardianShipForm.template.ts';
-          window.savedSteps = [];
-          const save = async (_, step) => { window.savedSteps.push(step); };
           export default function App() {
             const [started, setStarted] = React.useState(false);
             return started ? React.createElement(TemplateForm, {
               template: guardianShipFormTemplate,
               initialData: { countyName: 'King', caseNumber: 'RESUME-123', ...${JSON.stringify(answers)} },
               initialStepId: ${JSON.stringify(initialStepId) ?? 'undefined'},
-              onDraftSave: save
             }) : React.createElement('button', {onClick: () => setStarted(true)}, 'Resume');
           }
         `,
@@ -48,15 +45,42 @@ for (const initialStepId of [undefined, 'General Information:countyName|caseNumb
     const card = page.locator('.form-card-shell')
     await expect(card).toBeVisible()
     await expect(card).toHaveAttribute('data-step-id', nextStep)
-    // Wait for the debounced autosave, including effects triggered by derived fields.
-    await expect(page.getByRole('status')).toHaveText('Progress saved to your account.')
     await expect(card).toHaveAttribute('data-step-id', nextStep)
-    const savedSteps = await page.evaluate(() => (window as any).savedSteps as string[])
-    expect(savedSteps.length).toBeGreaterThan(0)
-    expect(savedSteps.every(step => !step.includes('countyName'))).toBe(true)
   })
 }
 }
+
+test('does not save draft changes until the user explicitly saves', async ({ page }) => {
+  await page.route('**/src/App.tsx', async route => {
+    await route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        import React from '/node_modules/.vite/deps/react.js';
+        import { TemplateForm } from '/src/components/TemplateForm.tsx';
+        import { guardianShipFormTemplate } from '/src/templates/guardianShipForm.template.ts';
+        window.saveCount = 0;
+        export default function App() {
+          const save = async () => { window.saveCount += 1; };
+          return React.createElement(TemplateForm, {
+            template: guardianShipFormTemplate,
+            onDraftSave: save
+          });
+        }
+      `,
+    })
+  })
+
+  await page.goto('/')
+  await page.getByLabel(/county/i).fill('King')
+  await page.getByLabel(/case or docket number/i).fill('MANUAL-SAVE-123')
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.waitForTimeout(1200)
+  await expect.poll(() => page.evaluate(() => (window as any).saveCount)).toBe(0)
+
+  await page.getByRole('button', { name: 'Save progress' }).click()
+  await expect(page.getByRole('status')).toHaveText('Progress saved to your account.')
+  await expect.poll(() => page.evaluate(() => (window as any).saveCount)).toBe(1)
+})
 
 test('leaving without saving preserves the last explicitly saved draft', async ({ page }) => {
   await page.route('**/src/App.tsx', async route => {
@@ -111,6 +135,58 @@ test('leaving without saving preserves the last explicitly saved draft', async (
   await page.getByRole('dialog').getByRole('button', { name: "Don't save" }).click()
 
   await expect(page.getByRole('status')).toHaveText('Saved draft remains')
+  await page.getByRole('button', { name: 'Resume saved report' }).click()
+  await expect(page.locator('.form-card-shell')).toHaveAttribute(
+    'data-step-id',
+    'General Information:countyName|caseNumber'
+  )
+})
+
+test('Save and go home stores the current draft for Resume', async ({ page }) => {
+  await page.route('**/src/App.tsx', async route => {
+    await route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        import React from '/node_modules/.vite/deps/react.js';
+        import { TemplateForm } from '/src/components/TemplateForm.tsx';
+        import { guardianShipFormTemplate } from '/src/templates/guardianShipForm.template.ts';
+
+        export default function App() {
+          const [started, setStarted] = React.useState(true);
+          const [homeRequest, setHomeRequest] = React.useState(0);
+          const [saved, setSaved] = React.useState(null);
+
+          if (!started) {
+            return React.createElement('button', {
+              type: 'button',
+              onClick: () => setStarted(true)
+            }, 'Resume saved report');
+          }
+
+          return React.createElement(React.Fragment, null,
+            React.createElement('button', {
+              type: 'button',
+              onClick: () => setHomeRequest(request => request + 1)
+            }, 'Go home'),
+            React.createElement(TemplateForm, {
+              template: guardianShipFormTemplate,
+              homeRequest,
+              initialData: { countyName: 'King', caseNumber: 'SAVE-AND-HOME-123' },
+              initialStepId: saved ? saved.stepId : undefined,
+              onHome: async (formData, shouldSave, stepId) => {
+                if (shouldSave) setSaved({ formData, stepId });
+                setStarted(false);
+              }
+            })
+          );
+        }
+      `,
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Go home' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Save and go home' }).click()
   await page.getByRole('button', { name: 'Resume saved report' }).click()
   await expect(page.locator('.form-card-shell')).toHaveAttribute(
     'data-step-id',

@@ -772,55 +772,6 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   const pendingStepNavigationRef = useRef<PendingStepNavigation | null>(null)
 
   useEffect(() => {
-    if (!onDraftSave) {
-      return
-    }
-
-    let saveTimer: number | undefined
-    let isDisposed = false
-    const scheduleSave = (values: TemplateFormData) => {
-      const hasUserInput = Object.values(values).some(value =>
-        typeof value === 'string' ? value.trim().length > 0 :
-          typeof value === 'number' ? Number.isFinite(value) :
-            value === true
-      )
-
-      if (!hasUserInput) return
-
-      window.clearTimeout(saveTimer)
-      setDraftSaveStatus('Saving progress…')
-      saveTimer = window.setTimeout(() => {
-        void onDraftSave(values, draftStepIdRef.current)
-          .then(() => {
-            if (!isDisposed) setDraftSaveStatus('Progress saved to your account.')
-          })
-          .catch(error => {
-            if (!isDisposed) {
-              setDraftSaveStatus(
-                error instanceof Error
-                  ? `Progress could not be saved: ${error.message}`
-                  : 'Progress could not be saved. Please try again.'
-              )
-            }
-          })
-      }, 900)
-    }
-
-    const subscription = watch(values => {
-      scheduleSave(values as TemplateFormData)
-    })
-    if (!initiallyReviewing) {
-      scheduleSave(watch())
-    }
-
-    return () => {
-      isDisposed = true
-      window.clearTimeout(saveTimer)
-      subscription.unsubscribe()
-    }
-  }, [initiallyReviewing, onDraftSave, watch])
-
-  useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
@@ -950,22 +901,8 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   const displayedProgressWidth = isReviewMode ? 100 : progressPercent
 
   // Keep the step ref current during render so an explicit save cannot use
-  // the previous step, and persist navigation even when no field value changed.
+  // the previous step, including when no field value changed.
   draftStepIdRef.current = currentStepConfig?.id
-
-  useEffect(() => {
-    if (!onDraftSave || initiallyReviewing || !currentStepConfig) {
-      return
-    }
-
-    void onDraftSave(formValues, currentStepConfig.id).catch(error => {
-      setDraftSaveStatus(
-        error instanceof Error
-          ? `Progress could not be saved: ${error.message}`
-          : 'Progress could not be saved. Please try again.'
-      )
-    })
-  }, [currentStepConfig?.id])
 
   useEffect(() => {
     if (formSteps.length === 0) {
