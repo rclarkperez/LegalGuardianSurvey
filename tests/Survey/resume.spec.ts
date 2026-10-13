@@ -57,3 +57,63 @@ for (const initialStepId of [undefined, 'General Information:countyName|caseNumb
   })
 }
 }
+
+test('leaving without saving preserves the last explicitly saved draft', async ({ page }) => {
+  await page.route('**/src/App.tsx', async route => {
+    await route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        import React from '/node_modules/.vite/deps/react.js';
+        import { TemplateForm } from '/src/components/TemplateForm.tsx';
+        import { guardianShipFormTemplate } from '/src/templates/guardianShipForm.template.ts';
+
+        export default function App() {
+          const [started, setStarted] = React.useState(true);
+          const [homeRequest, setHomeRequest] = React.useState(0);
+          const [saved, setSaved] = React.useState(null);
+
+          if (!started) {
+            return React.createElement(React.Fragment, null,
+              React.createElement('p', { role: 'status' }, saved ? 'Saved draft remains' : 'No saved draft'),
+              React.createElement('button', {
+                type: 'button',
+                onClick: () => setStarted(true)
+              }, 'Resume saved report')
+            );
+          }
+
+          return React.createElement(React.Fragment, null,
+            React.createElement('button', {
+              type: 'button',
+              onClick: () => setHomeRequest(request => request + 1)
+            }, 'Go home'),
+            React.createElement(TemplateForm, {
+              template: guardianShipFormTemplate,
+              homeRequest,
+              initialData: saved ? saved.formData : { countyName: 'King', caseNumber: 'SAVE-123' },
+              initialStepId: saved ? saved.stepId : undefined,
+              onDraftSave: async (formData, stepId) => setSaved({ formData, stepId }),
+              onHome: async (formData, shouldSave, stepId) => {
+                if (shouldSave) setSaved({ formData, stepId });
+                setStarted(false);
+              }
+            })
+          );
+        }
+      `,
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Save progress' }).click()
+  await expect(page.getByRole('status')).toHaveText('Progress saved to your account.')
+  await page.getByRole('button', { name: 'Go home' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: "Don't save" }).click()
+
+  await expect(page.getByRole('status')).toHaveText('Saved draft remains')
+  await page.getByRole('button', { name: 'Resume saved report' }).click()
+  await expect(page.locator('.form-card-shell')).toHaveAttribute(
+    'data-step-id',
+    'General Information:countyName|caseNumber'
+  )
+})
